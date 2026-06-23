@@ -26,7 +26,7 @@ beforeEach(async () => {
 
 describe('GET /api/reports/ranking', () => {
   it('returns ranking for all roles', async () => {
-    const pm = await createTestPayMethod(brandId)
+    const pm = await createTestPayMethod()
     await createTestService(modelId, adminId, pm)
 
     for (const token of [adminToken, monitorToken, modelToken]) {
@@ -42,7 +42,7 @@ describe('GET /api/reports/ranking', () => {
 
 describe('GET /api/reports/earnings', () => {
   it('returns earnings summary for admin', async () => {
-    const pm = await createTestPayMethod(brandId)
+    const pm = await createTestPayMethod()
     await createTestService(modelId, adminId, pm, [20000])
 
     const from = Date.now() - 86400000

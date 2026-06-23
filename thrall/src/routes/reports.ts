@@ -78,7 +78,7 @@ reportsRoutes.get('/earnings', requireRole('admin'), async (c) => {
 })
 
 reportsRoutes.get('/model-earnings/:id', requireRole('admin'), async (c) => {
-  const modelId = c.req.param('id')
+  const modelId = c.req.param('id')!
   const from = Number(c.req.query('from') ?? 0)
   const to = Number(c.req.query('to') ?? Date.now())
 

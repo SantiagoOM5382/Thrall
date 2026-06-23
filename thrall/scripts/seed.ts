@@ -1,3 +1,4 @@
+import 'dotenv/config'
 import { db } from '../src/db/client'
 import { brands, users, payMethods, brandSubscriptions } from '../src/db/schema'
 import { newId } from '../src/lib/ulid'

@@ -24,7 +24,8 @@
       "Bash(/home/analista_ti/.claude/plugins/cache/claude-plugins-official/superpowers/6.0.3/skills/subagent-driven-development/scripts/task-brief /home/analista_ti/sty/arthas/docs/superpowers/plans/2026-06-23-thrall-backend.md 3)",
       "Bash(npm test *)",
       "Bash(node -e ' *)",
-      "Bash(/home/analista_ti/.claude/plugins/cache/claude-plugins-official/superpowers/6.0.3/skills/subagent-driven-development/scripts/review-package 92c80a5 HEAD)"
+      "Bash(/home/analista_ti/.claude/plugins/cache/claude-plugins-official/superpowers/6.0.3/skills/subagent-driven-development/scripts/review-package 92c80a5 HEAD)",
+      "Bash(/home/analista_ti/.claude/plugins/cache/claude-plugins-official/superpowers/6.0.3/skills/subagent-driven-development/scripts/review-package da397d4 *)"
     ],
     "additionalDirectories": [
       "/home/analista_ti/sty/arthas/.superpowers/sdd"

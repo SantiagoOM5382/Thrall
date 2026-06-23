@@ -27,7 +27,7 @@ modelsRoutes.get('/', async (c) => {
 modelsRoutes.get('/:id', async (c) => {
   const model = await db.query.users.findFirst({
     where: (u, { and, eq, isNull }) =>
-      and(eq(u.id, c.req.param('id')), eq(u.role, 'model'), isNull(u.deletedAt)),
+      and(eq(u.id, c.req.param('id')), eq(u.role, 'model'), eq(u.isActive, 1), isNull(u.deletedAt)),
   })
   if (!model) return c.json({ error: 'Not found' }, 404)
 
@@ -38,5 +38,5 @@ modelsRoutes.get('/:id', async (c) => {
   })
 
   const { password: _, ...rest } = model
-  return c.json({ ...rest, images: images.map((i) => ({ id: i.id, url: i.url })) })
+  return c.json({ ...rest, images: images.map((i) => ({ id: i.id, url: i.url, sortOrder: i.sortOrder })) })
 })

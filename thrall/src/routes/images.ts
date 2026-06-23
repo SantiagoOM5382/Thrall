@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { eq } from 'drizzle-orm'
+import { eq, isNull } from 'drizzle-orm'
 import { put } from '@vercel/blob'
 import { db } from '../db/client'
 import { userImages } from '../db/schema'
@@ -48,6 +48,11 @@ imagesRoutes.delete('/:id', async (c) => {
   if (!['admin', 'monitor'].includes(caller.role)) {
     return c.json({ error: 'Forbidden' }, 403)
   }
+
+  const existing = await db.query.userImages.findFirst({
+    where: (img, { and, eq, isNull: isNullOp }) => and(eq(img.id, c.req.param('id')), isNullOp(img.deletedAt)),
+  })
+  if (!existing) return c.json({ error: 'Not found' }, 404)
 
   const now = Date.now()
   await db.update(userImages)

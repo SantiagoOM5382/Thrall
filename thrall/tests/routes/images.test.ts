@@ -79,4 +79,12 @@ describe('DELETE /api/images/:id', () => {
     expect(image?.isActive).toBe(0)
     expect(image?.deletedAt).not.toBeNull()
   })
+
+  it('returns 404 when deleting non-existent image', async () => {
+    const res = await app.request('/api/images/non-existent-id', {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${adminToken}` },
+    })
+    expect(res.status).toBe(404)
+  })
 })

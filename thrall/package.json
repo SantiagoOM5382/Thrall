@@ -16,7 +16,7 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "module",
+  "type": "commonjs",
   "dependencies": {
     "@hono/zod-validator": "^0.8.0",
     "@libsql/client": "^0.17.4",

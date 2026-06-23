@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "dev": "tsx watch src/app.ts",
-    "build": "tsc",
+    "build": "tsup api/index.ts --format cjs --platform node --target node20 --out-dir dist --no-splitting",
     "test": "vitest run",
     "test:watch": "vitest",
     "db:generate": "drizzle-kit generate",
@@ -16,7 +16,7 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "module",
+  "type": "commonjs",
   "dependencies": {
     "@hono/zod-validator": "^0.8.0",
     "@libsql/client": "^0.17.4",
@@ -33,6 +33,7 @@
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^26.0.0",
     "drizzle-kit": "^0.31.10",
+    "tsup": "^8.5.1",
     "tsx": "^4.22.4",
     "typescript": "^6.0.3",
     "vitest": "^4.1.9"

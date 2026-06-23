@@ -48,7 +48,7 @@ export async function tokenFor(userId: string, role: 'admin' | 'monitor' | 'mode
   return signToken({ sub: userId, role, brandId, name: 'Test' })
 }
 
-export async function createTestPayMethod(brandId: string) {
+export async function createTestPayMethod() {
   const id = newId()
   await db.insert(payMethods).values({
     id,

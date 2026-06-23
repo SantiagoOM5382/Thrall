@@ -48,6 +48,26 @@ describe('POST /api/auth/login', () => {
     })
     expect(res.status).toBe(401)
   })
+
+  it('returns 401 for inactive user', async () => {
+    // Create an inactive user
+    const inactive = await createTestUser(brandId, {
+      role: 'model',
+      email: `inactive-${Date.now()}@test.com`,
+    })
+    // Mark as inactive directly via db
+    const { db } = await import('../../src/db/client')
+    const { users } = await import('../../src/db/schema')
+    const { eq } = await import('drizzle-orm')
+    await db.update(users).set({ isActive: 0 }).where(eq(users.id, inactive.id))
+
+    const res = await app.request('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: inactive.email, password: 'password123' }),
+    })
+    expect(res.status).toBe(401)
+  })
 })
 
 describe('GET /api/auth/me', () => {

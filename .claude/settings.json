@@ -25,7 +25,8 @@
       "Bash(npm test *)",
       "Bash(node -e ' *)",
       "Bash(/home/analista_ti/.claude/plugins/cache/claude-plugins-official/superpowers/6.0.3/skills/subagent-driven-development/scripts/review-package 92c80a5 HEAD)",
-      "Bash(/home/analista_ti/.claude/plugins/cache/claude-plugins-official/superpowers/6.0.3/skills/subagent-driven-development/scripts/review-package da397d4 *)"
+      "Bash(/home/analista_ti/.claude/plugins/cache/claude-plugins-official/superpowers/6.0.3/skills/subagent-driven-development/scripts/review-package da397d4 *)",
+      "Bash(/home/analista_ti/.claude/plugins/cache/claude-plugins-official/superpowers/6.0.3/skills/subagent-driven-development/scripts/review-package 5fc4fb2 HEAD)"
     ],
     "additionalDirectories": [
       "/home/analista_ti/sty/arthas/.superpowers/sdd"

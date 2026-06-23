@@ -54,13 +54,21 @@ describe('GET /api/pay-methods', () => {
     expect(body[0]).toHaveProperty('displayName')
   })
 
-  it('monitor sees only code', async () => {
+  it('monitor sees only code, not displayName', async () => {
+    // Create a pay method first so the list is non-empty
+    await app.request('/api/pay-methods', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: `TST${Date.now()}`, displayName: 'Test Method' }),
+    })
+
     const res = await app.request('/api/pay-methods', {
       headers: { Authorization: `Bearer ${monitorToken}` },
     })
+    expect(res.status).toBe(200)
     const body = await res.json() as any[]
-    if (body.length > 0) {
-      expect(body[0]).not.toHaveProperty('displayName')
-    }
+    expect(body.length).toBeGreaterThan(0)
+    expect(body[0]).not.toHaveProperty('displayName')
+    expect(body[0]).toHaveProperty('code')
   })
 })

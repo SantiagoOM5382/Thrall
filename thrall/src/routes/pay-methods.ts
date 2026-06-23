@@ -40,6 +40,12 @@ payMethodsRoutes.post('/', requireRole('admin'), zValidator('json', bodySchema),
 
 payMethodsRoutes.put('/:id', requireRole('admin'), zValidator('json', bodySchema.partial()), async (c) => {
   const caller = c.get('user')
+
+  const existing = await db.query.payMethods.findFirst({
+    where: (pm, { and, eq, isNull }) => and(eq(pm.id, c.req.param('id')), isNull(pm.deletedAt)),
+  })
+  if (!existing) return c.json({ error: 'Not found' }, 404)
+
   const now = Date.now()
   await db.update(payMethods).set({ ...c.req.valid('json'), updatedAt: now }).where(eq(payMethods.id, c.req.param('id')))
   await logAudit(db, { userId: caller.sub, action: 'UPDATE', entity: 'pay_method', entityId: c.req.param('id') })
@@ -49,6 +55,12 @@ payMethodsRoutes.put('/:id', requireRole('admin'), zValidator('json', bodySchema
 
 payMethodsRoutes.delete('/:id', requireRole('admin'), async (c) => {
   const caller = c.get('user')
+
+  const existing = await db.query.payMethods.findFirst({
+    where: (pm, { and, eq, isNull }) => and(eq(pm.id, c.req.param('id')), isNull(pm.deletedAt)),
+  })
+  if (!existing) return c.json({ error: 'Not found' }, 404)
+
   const now = Date.now()
   await db.update(payMethods).set({ deletedAt: now, updatedAt: now }).where(eq(payMethods.id, c.req.param('id')))
   await logAudit(db, { userId: caller.sub, action: 'DELETE', entity: 'pay_method', entityId: c.req.param('id') })

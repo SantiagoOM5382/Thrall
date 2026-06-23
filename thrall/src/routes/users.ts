@@ -70,10 +70,14 @@ usersRoutes.get('/:id', async (c) => {
 })
 
 usersRoutes.put('/:id', zValidator('json', updateSchema), async (c) => {
-  const data = c.req.valid('json')
   const caller = c.get('user')
-  const now = Date.now()
+  const existing = await db.query.users.findFirst({
+    where: (u, { and, eq, isNull }) => and(eq(u.id, c.req.param('id')), isNull(u.deletedAt)),
+  })
+  if (!existing) return c.json({ error: 'Not found' }, 404)
 
+  const data = c.req.valid('json')
+  const now = Date.now()
   const patch: Record<string, unknown> = { ...data, updatedAt: now }
   if (data.password) patch.password = await hashPassword(data.password)
 
@@ -86,6 +90,11 @@ usersRoutes.put('/:id', zValidator('json', updateSchema), async (c) => {
 
 usersRoutes.delete('/:id', async (c) => {
   const caller = c.get('user')
+  const existing = await db.query.users.findFirst({
+    where: (u, { and, eq, isNull }) => and(eq(u.id, c.req.param('id')), isNull(u.deletedAt)),
+  })
+  if (!existing) return c.json({ error: 'Not found' }, 404)
+
   const now = Date.now()
   await db.update(users).set({ deletedAt: now, updatedAt: now }).where(eq(users.id, c.req.param('id')))
   await logAudit(db, { userId: caller.sub, action: 'DELETE', entity: 'user', entityId: c.req.param('id') })

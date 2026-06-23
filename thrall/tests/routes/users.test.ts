@@ -65,4 +65,12 @@ describe('DELETE /api/users/:id', () => {
     })
     expect(res.status).toBe(200)
   })
+
+  it('returns 404 when deleting non-existent user', async () => {
+    const res = await app.request('/api/users/non-existent-id', {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${adminToken}` },
+    })
+    expect(res.status).toBe(404)
+  })
 })

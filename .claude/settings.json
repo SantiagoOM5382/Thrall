@@ -1,0 +1,33 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(cat /home/analista_ti/.claude/plugins/cache/claude-plugins-official/superpowers/6.0.3/skills/subagent-driven-development/implementer-prompt.md)",
+      "Read(//home/analista_ti/.claude/plugins/cache/claude-plugins-official/superpowers/6.0.3/skills/subagent-driven-development/**)",
+      "Bash(git checkout *)",
+      "Bash(mkdir -p .superpowers/sdd)",
+      "Bash(echo \"# Arthas — Thrall Implementation Progress\\\\n\\\\n| Task | Status | Commits | Notes |\\\\n|------|--------|---------|-------|\\\\n\")",
+      "Bash(printf \"# Arthas — Thrall Implementation Progress\\\\n\\\\n| Task | Status | Commits | Notes |\\\\n|------|--------|---------|-------|\\\\n| Task 1 | pending | — | Project scaffolding |\\\\n| Task 2 | pending | — | Database schema |\\\\n| Task 3 | pending | — | Core utilities |\\\\n| Task 4 | pending | — | Auth middleware & RBAC |\\\\n| Task 5 | pending | — | Auth routes |\\\\n| Task 6 | pending | — | Users routes |\\\\n| Task 7 | pending | — | Models + Images routes |\\\\n| Task 8 | pending | — | Pay-methods + serializer |\\\\n| Task 9 | pending | — | Services routes |\\\\n| Task 10 | pending | — | Reports routes |\\\\n| Task 11 | pending | — | App assembly + seed |\\\\n\" > .superpowers/sdd/progress.md && cat .superpowers/sdd/progress.md)",
+      "Bash(/home/analista_ti/.claude/plugins/cache/claude-plugins-official/superpowers/6.0.3/skills/subagent-driven-development/scripts/task-brief /home/analista_ti/sty/arthas/docs/superpowers/plans/2026-06-23-thrall-backend.md 1)",
+      "Bash(mkdir -p /home/analista_ti/sty/arthas/thrall && cd /home/analista_ti/sty/arthas/thrall && pwd)",
+      "Bash(npm init *)",
+      "Bash(npm install *)",
+      "Bash(grep -E \"\\\\.\\(json|ts|example|gitignore\\)$|^d\")",
+      "Bash(npx tsc *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(npm list *)",
+      "Bash(/home/analista_ti/.claude/plugins/cache/claude-plugins-official/superpowers/6.0.3/skills/subagent-driven-development/scripts/review-package 4fae345 HEAD)",
+      "Bash(/home/analista_ti/.claude/plugins/cache/claude-plugins-official/superpowers/6.0.3/skills/subagent-driven-development/scripts/task-brief /home/analista_ti/sty/arthas/docs/superpowers/plans/2026-06-23-thrall-backend.md 2)",
+      "Bash(npm run *)",
+      "Bash(git rm *)",
+      "Bash(/home/analista_ti/.claude/plugins/cache/claude-plugins-official/superpowers/6.0.3/skills/subagent-driven-development/scripts/review-package e59dee2 *)",
+      "Bash(/home/analista_ti/.claude/plugins/cache/claude-plugins-official/superpowers/6.0.3/skills/subagent-driven-development/scripts/task-brief /home/analista_ti/sty/arthas/docs/superpowers/plans/2026-06-23-thrall-backend.md 3)",
+      "Bash(npm test *)",
+      "Bash(node -e ' *)",
+      "Bash(/home/analista_ti/.claude/plugins/cache/claude-plugins-official/superpowers/6.0.3/skills/subagent-driven-development/scripts/review-package 92c80a5 HEAD)"
+    ],
+    "additionalDirectories": [
+      "/home/analista_ti/sty/arthas/.superpowers/sdd"
+    ]
+  }
+}

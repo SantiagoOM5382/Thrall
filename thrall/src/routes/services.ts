@@ -12,7 +12,7 @@ import { getTodayRangeInBogota } from '../lib/timezone'
 export const servicesRoutes = new Hono<AppEnv>()
 servicesRoutes.use('*', authMiddleware)
 
-const createSchema = z.object({
+const serviceBaseSchema = z.object({
   modelId: z.string(),
   startTime: z.number().int(),
   endTime: z.number().int(),
@@ -25,8 +25,15 @@ const createSchema = z.object({
   })).default([]),
 })
 
+const createSchema = serviceBaseSchema.refine((d) => d.endTime > d.startTime, {
+  message: 'endTime must be after startTime',
+  path: ['endTime'],
+})
+
 async function getServiceWithExtras(id: string) {
-  const service = await db.query.services.findFirst({ where: eq(services.id, id) })
+  const service = await db.query.services.findFirst({
+    where: (s, { and, eq, isNull }) => and(eq(s.id, id), isNull(s.deletedAt)),
+  })
   if (!service) return null
   const extras = await db.query.serviceExtras.findMany({ where: eq(serviceExtras.serviceId, id) })
   return { ...service, extras }
@@ -112,7 +119,7 @@ servicesRoutes.post('/', zValidator('json', createSchema), async (c) => {
   return c.json(result, 201)
 })
 
-servicesRoutes.put('/:id', zValidator('json', createSchema.partial()), async (c) => {
+servicesRoutes.put('/:id', zValidator('json', serviceBaseSchema.partial()), async (c) => {
   const caller = c.get('user')
   if (!['admin', 'monitor'].includes(caller.role)) {
     return c.json({ error: 'Forbidden' }, 403)

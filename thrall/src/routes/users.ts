@@ -90,6 +90,9 @@ usersRoutes.put('/:id', zValidator('json', updateSchema), async (c) => {
 
 usersRoutes.delete('/:id', async (c) => {
   const caller = c.get('user')
+  if (caller.sub === c.req.param('id')) {
+    return c.json({ error: 'Cannot delete own account' }, 400)
+  }
   const existing = await db.query.users.findFirst({
     where: (u, { and, eq, isNull }) => and(eq(u.id, c.req.param('id')), isNull(u.deletedAt)),
   })

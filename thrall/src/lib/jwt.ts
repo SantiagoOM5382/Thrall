@@ -8,7 +8,9 @@ export interface TokenPayload {
 }
 
 function getSecret(): Uint8Array {
-  return new TextEncoder().encode(process.env.JWT_SECRET!)
+  const secret = process.env.JWT_SECRET
+  if (!secret) throw new Error('JWT_SECRET env var is required')
+  return new TextEncoder().encode(secret)
 }
 
 export async function signToken(payload: TokenPayload): Promise<string> {

@@ -11,7 +11,7 @@ describe('getTodayRangeInBogota', () => {
 
   it('range spans exactly one day (86400000 ms)', () => {
     const { start, end } = getTodayRangeInBogota()
-    expect(end - start).toBe(86400000 - 1000)
+    expect(end - start).toBe(86400000 - 1)
   })
 
   it('start is midnight Bogota time', () => {

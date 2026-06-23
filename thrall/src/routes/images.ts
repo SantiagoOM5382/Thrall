@@ -14,7 +14,8 @@ imagesRoutes.post('/users/:userId', async (c) => {
   const caller = c.get('user')
   const { userId } = c.req.param()
 
-  // Modelo solo puede subir sus propias imágenes
+  // Admin and monitor can upload images for any model
+  // Model role can only upload their own images
   if (caller.role === 'model' && caller.sub !== userId) {
     return c.json({ error: 'Forbidden' }, 403)
   }

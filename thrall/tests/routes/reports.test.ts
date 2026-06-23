@@ -25,11 +25,11 @@ beforeEach(async () => {
 })
 
 describe('GET /api/reports/ranking', () => {
-  it('returns ranking for all roles', async () => {
+  it('returns ranking for admin and monitor', async () => {
     const pm = await createTestPayMethod()
     await createTestService(modelId, adminId, pm)
 
-    for (const token of [adminToken, monitorToken, modelToken]) {
+    for (const token of [adminToken, monitorToken]) {
       const res = await app.request('/api/reports/ranking', {
         headers: { Authorization: `Bearer ${token}` },
       })
@@ -37,6 +37,13 @@ describe('GET /api/reports/ranking', () => {
       const body = await res.json() as any[]
       expect(Array.isArray(body)).toBe(true)
     }
+  })
+
+  it('returns 403 for model role', async () => {
+    const res = await app.request('/api/reports/ranking', {
+      headers: { Authorization: `Bearer ${modelToken}` },
+    })
+    expect(res.status).toBe(403)
   })
 })
 

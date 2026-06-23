@@ -10,7 +10,7 @@ import { getTodayRangeInBogota } from '../lib/timezone'
 export const reportsRoutes = new Hono<AppEnv>()
 reportsRoutes.use('*', authMiddleware)
 
-reportsRoutes.get('/ranking', async (c) => {
+reportsRoutes.get('/ranking', requireRole('admin', 'monitor'), async (c) => {
   const all = await db.query.services.findMany({
     where: (s, { isNull }) => isNull(s.deletedAt),
   })

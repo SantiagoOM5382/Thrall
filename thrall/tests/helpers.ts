@@ -52,7 +52,7 @@ export async function createTestPayMethod() {
   const id = newId()
   await db.insert(payMethods).values({
     id,
-    code: `PM${id.slice(0, 4)}`,
+    code: `PM${Date.now()}`,
     displayName: 'Nequi Santiago',
     isActive: 1,
     createdAt: Date.now(),

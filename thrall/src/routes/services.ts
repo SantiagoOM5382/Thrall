@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
-import { eq, and, isNull, isNotNull } from 'drizzle-orm'
+import { eq } from 'drizzle-orm'
 import { db } from '../db/client'
 import { services, serviceExtras } from '../db/schema'
 import { authMiddleware, type AppEnv } from '../middleware/auth'
@@ -118,6 +118,9 @@ servicesRoutes.put('/:id', zValidator('json', createSchema.partial()), async (c)
     return c.json({ error: 'Forbidden' }, 403)
   }
 
+  const existing = await getServiceWithExtras(c.req.param('id'))
+  if (!existing) return c.json({ error: 'Not found' }, 404)
+
   const data = c.req.valid('json')
   const now = Date.now()
   const { extras, ...serviceData } = data
@@ -146,6 +149,10 @@ servicesRoutes.delete('/:id', async (c) => {
   if (!['admin', 'monitor'].includes(caller.role)) {
     return c.json({ error: 'Forbidden' }, 403)
   }
+
+  const existing = await getServiceWithExtras(c.req.param('id'))
+  if (!existing) return c.json({ error: 'Not found' }, 404)
+
   const now = Date.now()
   await db.update(services).set({ deletedAt: now, updatedAt: now }).where(eq(services.id, c.req.param('id')))
   await logAudit(db, { userId: caller.sub, action: 'DELETE', entity: 'service', entityId: c.req.param('id') })

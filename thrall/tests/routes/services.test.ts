@@ -59,6 +59,35 @@ describe('POST /api/services', () => {
   })
 })
 
+describe('PUT /api/services/:id', () => {
+  it('monitor can update a service and replace extras', async () => {
+    const serviceId = await createTestService(modelId, monitorId, payMethodId, [10000])
+    const now = Date.now()
+    const res = await app.request(`/api/services/${serviceId}`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${monitorToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        basePrice: 150000,
+        extras: [{ description: 'New Extra', amount: 25000 }],
+      }),
+    })
+    expect(res.status).toBe(200)
+    const body = await res.json() as any
+    expect(body.basePrice).toBe(150000)
+    expect(body.extras).toHaveLength(1)
+    expect(body.extras[0].amount).toBe(25000)
+  })
+
+  it('returns 404 for non-existent service', async () => {
+    const res = await app.request('/api/services/non-existent-id', {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ basePrice: 100000 }),
+    })
+    expect(res.status).toBe(404)
+  })
+})
+
 describe('DELETE /api/services/:id', () => {
   it('monitor can soft delete a service', async () => {
     const serviceId = await createTestService(modelId, monitorId, payMethodId)
@@ -67,6 +96,29 @@ describe('DELETE /api/services/:id', () => {
       headers: { Authorization: `Bearer ${monitorToken}` },
     })
     expect(res.status).toBe(200)
+  })
+})
+
+describe('DELETE /api/services/:id visibility', () => {
+  it('admin sees deleted service in GET, monitor does not', async () => {
+    const serviceId = await createTestService(modelId, adminId, payMethodId)
+    // Delete it
+    await app.request(`/api/services/${serviceId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${adminToken}` },
+    })
+    // Admin sees it
+    const adminRes = await app.request('/api/services', {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    })
+    const adminBody = await adminRes.json() as any[]
+    expect(adminBody.some((s: any) => s.id === serviceId)).toBe(true)
+    // Monitor does not (today filter + deletedAt IS NULL)
+    const monitorRes = await app.request('/api/services', {
+      headers: { Authorization: `Bearer ${monitorToken}` },
+    })
+    const monitorBody = await monitorRes.json() as any[]
+    expect(monitorBody.some((s: any) => s.id === serviceId)).toBe(false)
   })
 })
 

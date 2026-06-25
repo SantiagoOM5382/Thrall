@@ -21,3 +21,33 @@ export interface Model {
   deletedAt: number | null
   images: ModelImage[]
 }
+
+export interface PayMethod {
+  id: string
+  code: string
+  displayName?: string // only present for admin
+  isActive: number
+}
+
+export interface ServiceExtra {
+  id: string
+  serviceId: string
+  description: string
+  amount: number
+  createdAt: number
+}
+
+export interface Service {
+  id: string
+  modelId: string
+  createdBy: string
+  startTime: number
+  endTime: number
+  basePrice: number
+  payMethodId: string
+  note: string | null
+  createdAt: number
+  updatedAt: number
+  deletedAt: number | null
+  extras: ServiceExtra[]
+}

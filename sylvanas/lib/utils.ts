@@ -48,3 +48,20 @@ export function calcEarnings(
   const modelExtras = extras.reduce((sum, n) => sum + n, 0)
   return { modelBase, company, modelExtras, modelTotal: modelBase + modelExtras }
 }
+
+/** Today's date as "YYYY-MM-DD" in America/Bogota. */
+export function todayBogota(): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Bogota",
+  }).format(new Date())
+}
+
+/** Start-of-day (00:00:00) for a YYYY-MM-DD date, as Unix ms at UTC-5. */
+export function dayStartBogotaMs(date: string): number {
+  return new Date(`${date}T00:00:00-05:00`).getTime()
+}
+
+/** End-of-day (23:59:59.999) for a YYYY-MM-DD date, as Unix ms at UTC-5. */
+export function dayEndBogotaMs(date: string): number {
+  return new Date(`${date}T23:59:59.999-05:00`).getTime()
+}

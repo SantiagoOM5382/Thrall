@@ -8,6 +8,7 @@ import { payMethodsRoutes } from './routes/pay-methods'
 import { servicesRoutes } from './routes/services'
 import { reportsRoutes } from './routes/reports'
 import { finesRoutes } from './routes/fines'
+import { loansRoutes } from './routes/loans'
 
 const app = new Hono().basePath('/api')
 
@@ -25,6 +26,7 @@ app.route('/pay-methods', payMethodsRoutes)
 app.route('/services', servicesRoutes)
 app.route('/reports', reportsRoutes)
 app.route('/fines', finesRoutes)
+app.route('/loans', loansRoutes)
 
 app.get('/health', (c) => c.json({ ok: true }))
 

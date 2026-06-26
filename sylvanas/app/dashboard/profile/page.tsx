@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation"
 import { getSession } from "@/lib/session"
 import { apiFetch, ApiError } from "@/lib/api"
-import type { Service, Model } from "@/lib/types"
+import type { Service, Model, Fine, Loan } from "@/lib/types"
 import {
   formatCOP,
   formatDuration,
@@ -36,9 +36,11 @@ export default async function ProfilePage() {
   const user = await getSession()
   if (!user) redirect("/login")
 
-  const [services, images] = await Promise.all([
+  const [services, images, fines, loans] = await Promise.all([
     apiFetch<Service[]>("/services"),
     getImages(user.sub),
+    apiFetch<Fine[]>("/fines"),
+    apiFetch<Loan[]>("/loans"),
   ])
 
   const timeOpts: Intl.DateTimeFormatOptions = {
@@ -121,6 +123,58 @@ export default async function ProfilePage() {
           </div>
         )}
       </section>
+
+      {fines.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="text-lg font-medium">Mis multas de hoy</h2>
+          <div className="rounded-lg border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Hora</TableHead>
+                  <TableHead>Motivo</TableHead>
+                  <TableHead className="text-right">Monto</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {fines.map((f) => (
+                  <TableRow key={f.id}>
+                    <TableCell>{formatBogotaDate(f.createdAt, { hour: "2-digit", minute: "2-digit" })}</TableCell>
+                    <TableCell className="text-muted-foreground">{f.reason}</TableCell>
+                    <TableCell className="text-right">{formatCOP(f.amount)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </section>
+      )}
+
+      {loans.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="text-lg font-medium">Mis préstamos de hoy</h2>
+          <div className="rounded-lg border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Hora</TableHead>
+                  <TableHead>Motivo</TableHead>
+                  <TableHead className="text-right">Monto</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loans.map((l) => (
+                  <TableRow key={l.id}>
+                    <TableCell>{formatBogotaDate(l.createdAt, { hour: "2-digit", minute: "2-digit" })}</TableCell>
+                    <TableCell className="text-muted-foreground">{l.reason}</TableCell>
+                    <TableCell className="text-right">{formatCOP(l.amount)}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </section>
+      )}
 
       <section className="space-y-4">
         <h2 className="text-lg font-medium">Mis fotos</h2>

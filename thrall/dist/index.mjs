@@ -65046,7 +65046,10 @@ __export(schema_exports, {
   auditLogs: () => auditLogs,
   brandSubscriptions: () => brandSubscriptions,
   brands: () => brands,
+  fines: () => fines,
+  loans: () => loans,
   payMethods: () => payMethods,
+  payments: () => payments,
   serviceExtras: () => serviceExtras,
   services: () => services,
   userImages: () => userImages,
@@ -65134,6 +65137,32 @@ var brandSubscriptions = sqliteTable("brand_subscriptions", {
   paidUntil: integer2("paid_until"),
   createdAt: integer2("created_at").notNull(),
   updatedAt: integer2("updated_at").notNull()
+});
+var fines = sqliteTable("fines", {
+  id: text("id").primaryKey(),
+  modelId: text("model_id").notNull().references(() => users.id),
+  amount: integer2("amount").notNull(),
+  reason: text("reason").notNull(),
+  createdBy: text("created_by").notNull().references(() => users.id),
+  createdAt: integer2("created_at").notNull(),
+  deletedAt: integer2("deleted_at")
+});
+var loans = sqliteTable("loans", {
+  id: text("id").primaryKey(),
+  modelId: text("model_id").notNull().references(() => users.id),
+  amount: integer2("amount").notNull(),
+  reason: text("reason").notNull(),
+  createdBy: text("created_by").notNull().references(() => users.id),
+  createdAt: integer2("created_at").notNull(),
+  deletedAt: integer2("deleted_at")
+});
+var payments = sqliteTable("payments", {
+  id: text("id").primaryKey(),
+  modelId: text("model_id").notNull().references(() => users.id),
+  amount: integer2("amount").notNull(),
+  payMethodId: text("pay_method_id").notNull().references(() => payMethods.id),
+  createdBy: text("created_by").notNull().references(() => users.id),
+  createdAt: integer2("created_at").notNull()
 });
 
 // src/db/client.ts
@@ -70438,6 +70467,38 @@ reportsRoutes.get("/model-earnings/:id", requireRole("admin"), async (c) => {
   );
   return c.json({ rows, totals });
 });
+reportsRoutes.get("/model-balance/:id", requireRole("admin"), async (c) => {
+  const modelId = c.req.param("id");
+  const modelServices = await db.query.services.findMany({
+    where: (s, { and: and3, eq: eqFn, isNull: isNull4 }) => and3(eqFn(s.modelId, modelId), isNull4(s.deletedAt))
+  });
+  let totalEarnings = 0;
+  for (const s of modelServices) {
+    const extras = await db.query.serviceExtras.findMany({
+      where: eq(serviceExtras.serviceId, s.id)
+    });
+    totalEarnings += calcEarnings(s.basePrice, extras.map((x) => x.amount)).modelTotal;
+  }
+  const modelFines = await db.query.fines.findMany({
+    where: (f, { and: and3, eq: eqFn, isNull: isNull4 }) => and3(eqFn(f.modelId, modelId), isNull4(f.deletedAt))
+  });
+  const totalFines = modelFines.reduce((sum, f) => sum + f.amount, 0);
+  const modelLoans = await db.query.loans.findMany({
+    where: (l, { and: and3, eq: eqFn, isNull: isNull4 }) => and3(eqFn(l.modelId, modelId), isNull4(l.deletedAt))
+  });
+  const totalLoans = modelLoans.reduce((sum, l) => sum + l.amount, 0);
+  const modelPayments = await db.query.payments.findMany({
+    where: (p, { eq: eqFn }) => eqFn(p.modelId, modelId)
+  });
+  const totalPayments = modelPayments.reduce((sum, p) => sum + p.amount, 0);
+  return c.json({
+    balance: totalEarnings - totalFines - totalLoans - totalPayments,
+    totalEarnings,
+    totalFines,
+    totalLoans,
+    totalPayments
+  });
+});
 reportsRoutes.get("/daily", requireRole("admin", "monitor"), async (c) => {
   const { start, end } = getTodayRangeInBogota();
   const todayServices = await db.query.services.findMany({
@@ -70464,6 +70525,170 @@ reportsRoutes.get("/daily", requireRole("admin", "monitor"), async (c) => {
   });
 });
 
+// src/routes/fines.ts
+var finesRoutes = new Hono2();
+finesRoutes.use("*", authMiddleware);
+var createSchema3 = external_exports.object({
+  modelId: external_exports.string(),
+  amount: external_exports.number().int().positive(),
+  reason: external_exports.string().min(1)
+});
+finesRoutes.get("/", async (c) => {
+  const caller = c.get("user");
+  if (caller.role === "admin") {
+    const all = await db.query.fines.findMany({
+      orderBy: (f, { desc: desc2 }) => [desc2(f.createdAt)]
+    });
+    return c.json(all);
+  }
+  const { start, end } = getTodayRangeInBogota();
+  if (caller.role === "monitor") {
+    const today = await db.query.fines.findMany({
+      where: (f, { and: and3, between: between3, isNull: isNull4 }) => and3(between3(f.createdAt, start, end), isNull4(f.deletedAt)),
+      orderBy: (f, { desc: desc2 }) => [desc2(f.createdAt)]
+    });
+    return c.json(today);
+  }
+  const own = await db.query.fines.findMany({
+    where: (f, { and: and3, eq: eqFn, between: between3, isNull: isNull4 }) => and3(eqFn(f.modelId, caller.sub), between3(f.createdAt, start, end), isNull4(f.deletedAt)),
+    orderBy: (f, { desc: desc2 }) => [desc2(f.createdAt)]
+  });
+  return c.json(own);
+});
+finesRoutes.post("/", requireRole("admin", "monitor"), zValidator("json", createSchema3), async (c) => {
+  const caller = c.get("user");
+  const data = c.req.valid("json");
+  const model = await db.query.users.findFirst({
+    where: (u, { and: and3, eq: eqFn, isNull: isNull4 }) => and3(eqFn(u.id, data.modelId), eqFn(u.role, "model"), isNull4(u.deletedAt))
+  });
+  if (!model) return c.json({ error: "Model not found" }, 404);
+  const id = newId();
+  const now = Date.now();
+  await db.insert(fines).values({
+    id,
+    modelId: data.modelId,
+    amount: data.amount,
+    reason: data.reason,
+    createdBy: caller.sub,
+    createdAt: now
+  });
+  await logAudit(db, { userId: caller.sub, action: "CREATE", entity: "fine", entityId: id });
+  const created = await db.query.fines.findFirst({ where: eq(fines.id, id) });
+  return c.json(created, 201);
+});
+finesRoutes.delete("/:id", requireRole("admin"), async (c) => {
+  const caller = c.get("user");
+  const id = c.req.param("id");
+  const existing = await db.query.fines.findFirst({
+    where: (f, { and: and3, eq: eqFn, isNull: isNull4 }) => and3(eqFn(f.id, id), isNull4(f.deletedAt))
+  });
+  if (!existing) return c.json({ error: "Not found" }, 404);
+  await db.update(fines).set({ deletedAt: Date.now() }).where(eq(fines.id, id));
+  await logAudit(db, { userId: caller.sub, action: "DELETE", entity: "fine", entityId: id });
+  return c.json({ ok: true });
+});
+
+// src/routes/loans.ts
+var loansRoutes = new Hono2();
+loansRoutes.use("*", authMiddleware);
+var createSchema4 = external_exports.object({
+  modelId: external_exports.string(),
+  amount: external_exports.number().int().positive(),
+  reason: external_exports.string().min(1)
+});
+loansRoutes.get("/", async (c) => {
+  const caller = c.get("user");
+  if (caller.role === "admin") {
+    const all = await db.query.loans.findMany({
+      orderBy: (l, { desc: desc2 }) => [desc2(l.createdAt)]
+    });
+    return c.json(all);
+  }
+  const { start, end } = getTodayRangeInBogota();
+  if (caller.role === "monitor") {
+    const today = await db.query.loans.findMany({
+      where: (l, { and: and3, between: between3, isNull: isNull4 }) => and3(between3(l.createdAt, start, end), isNull4(l.deletedAt)),
+      orderBy: (l, { desc: desc2 }) => [desc2(l.createdAt)]
+    });
+    return c.json(today);
+  }
+  const own = await db.query.loans.findMany({
+    where: (l, { and: and3, eq: eqFn, between: between3, isNull: isNull4 }) => and3(eqFn(l.modelId, caller.sub), between3(l.createdAt, start, end), isNull4(l.deletedAt)),
+    orderBy: (l, { desc: desc2 }) => [desc2(l.createdAt)]
+  });
+  return c.json(own);
+});
+loansRoutes.post("/", requireRole("admin", "monitor"), zValidator("json", createSchema4), async (c) => {
+  const caller = c.get("user");
+  const data = c.req.valid("json");
+  const model = await db.query.users.findFirst({
+    where: (u, { and: and3, eq: eqFn, isNull: isNull4 }) => and3(eqFn(u.id, data.modelId), eqFn(u.role, "model"), isNull4(u.deletedAt))
+  });
+  if (!model) return c.json({ error: "Model not found" }, 404);
+  const id = newId();
+  const now = Date.now();
+  await db.insert(loans).values({
+    id,
+    modelId: data.modelId,
+    amount: data.amount,
+    reason: data.reason,
+    createdBy: caller.sub,
+    createdAt: now
+  });
+  await logAudit(db, { userId: caller.sub, action: "CREATE", entity: "loan", entityId: id });
+  const created = await db.query.loans.findFirst({ where: eq(loans.id, id) });
+  return c.json(created, 201);
+});
+loansRoutes.delete("/:id", requireRole("admin", "monitor"), async (c) => {
+  const caller = c.get("user");
+  const id = c.req.param("id");
+  const existing = await db.query.loans.findFirst({
+    where: (l, { and: and3, eq: eqFn, isNull: isNull4 }) => and3(eqFn(l.id, id), isNull4(l.deletedAt))
+  });
+  if (!existing) return c.json({ error: "Not found" }, 404);
+  await db.update(loans).set({ deletedAt: Date.now() }).where(eq(loans.id, id));
+  await logAudit(db, { userId: caller.sub, action: "DELETE", entity: "loan", entityId: id });
+  return c.json({ ok: true });
+});
+
+// src/routes/payments.ts
+var paymentsRoutes = new Hono2();
+paymentsRoutes.use("*", authMiddleware, requireRole("admin"));
+var createSchema5 = external_exports.object({
+  modelId: external_exports.string(),
+  amount: external_exports.number().int().positive(),
+  payMethodId: external_exports.string()
+});
+paymentsRoutes.get("/", async (c) => {
+  const modelId = c.req.query("modelId");
+  if (!modelId) return c.json({ error: "modelId is required" }, 400);
+  const list = await db.query.payments.findMany({
+    where: (p, { eq: eqFn }) => eqFn(p.modelId, modelId),
+    orderBy: (p, { desc: desc2 }) => [desc2(p.createdAt)]
+  });
+  return c.json(list);
+});
+paymentsRoutes.post("/", zValidator("json", createSchema5), async (c) => {
+  const caller = c.get("user");
+  const data = c.req.valid("json");
+  const model = await db.query.users.findFirst({
+    where: (u, { and: and3, eq: eqFn, isNull: isNull4 }) => and3(eqFn(u.id, data.modelId), eqFn(u.role, "model"), isNull4(u.deletedAt))
+  });
+  if (!model) return c.json({ error: "Model not found" }, 404);
+  const id = newId();
+  await db.insert(payments).values({
+    id,
+    modelId: data.modelId,
+    amount: data.amount,
+    payMethodId: data.payMethodId,
+    createdBy: caller.sub,
+    createdAt: Date.now()
+  });
+  await logAudit(db, { userId: caller.sub, action: "CREATE", entity: "payment", entityId: id });
+  const created = await db.query.payments.findFirst({ where: eq(payments.id, id) });
+  return c.json(created, 201);
+});
+
 // src/app.ts
 var app = new Hono2().basePath("/api");
 app.use("*", cors({
@@ -70478,6 +70703,9 @@ app.route("/images", imagesRoutes);
 app.route("/pay-methods", payMethodsRoutes);
 app.route("/services", servicesRoutes);
 app.route("/reports", reportsRoutes);
+app.route("/fines", finesRoutes);
+app.route("/loans", loansRoutes);
+app.route("/payments", paymentsRoutes);
 app.get("/health", (c) => c.json({ ok: true }));
 var app_default = app;
 

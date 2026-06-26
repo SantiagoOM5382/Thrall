@@ -50,7 +50,7 @@ export default async function ModelDetailPage({
     await Promise.all([
       getModelImages(id),
       apiFetch<ModelBalance>(`/reports/model-balance/${id}`),
-      apiFetch<Payment[]>("/payments"),
+      apiFetch<Payment[]>(`/payments?modelId=${id}`),
       apiFetch<Fine[]>("/fines"),
       apiFetch<Loan[]>("/loans"),
       apiFetch<PayMethod[]>("/pay-methods"),

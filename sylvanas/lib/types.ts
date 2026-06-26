@@ -63,3 +63,20 @@ export interface Fine {
 }
 
 export type Loan = Fine // identical shape
+
+export interface Payment {
+  id: string
+  modelId: string
+  amount: number
+  payMethodId: string
+  createdBy: string
+  createdAt: number
+}
+
+export interface ModelBalance {
+  balance: number
+  totalEarnings: number
+  totalFines: number
+  totalLoans: number
+  totalPayments: number
+}

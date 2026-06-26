@@ -51,3 +51,15 @@ export interface Service {
   deletedAt: number | null
   extras: ServiceExtra[]
 }
+
+export interface Fine {
+  id: string
+  modelId: string
+  amount: number
+  reason: string
+  createdBy: string
+  createdAt: number
+  deletedAt: number | null
+}
+
+export type Loan = Fine // identical shape

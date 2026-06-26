@@ -1,6 +1,6 @@
 import Link from "next/link"
 import { apiFetch } from "@/lib/api"
-import type { Service, Model, PayMethod } from "@/lib/types"
+import type { Service, Model, PayMethod, Fine, Loan } from "@/lib/types"
 import {
   formatCOP,
   formatDuration,
@@ -19,20 +19,28 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { DeleteServiceButton } from "./delete-service-button"
+import { RegisterMovementDialog } from "./register-movement-dialog"
+import { DeleteMovementButton } from "./delete-movement-button"
+import { getSession } from "@/lib/session"
 
 export const dynamic = "force-dynamic"
 
 async function loadData() {
-  const [services, models, payMethods] = await Promise.all([
+  const [services, models, payMethods, fines, loans] = await Promise.all([
     apiFetch<Service[]>("/services"),
     apiFetch<Model[]>("/models"),
     apiFetch<PayMethod[]>("/pay-methods"),
+    apiFetch<Fine[]>("/fines"),
+    apiFetch<Loan[]>("/loans"),
   ])
-  return { services, models, payMethods }
+  return { services, models, payMethods, fines, loans }
 }
 
 export default async function ServicesPage() {
-  const { services, models, payMethods } = await loadData()
+  const { services, models, payMethods, fines, loans } = await loadData()
+  const session = await getSession()
+  const isAdmin = session?.role === "admin"
+  const isAdminOrMonitor = session?.role === "admin" || session?.role === "monitor"
   const modelName = new Map(models.map((m) => [m.id, m.name]))
   const payCode = new Map(payMethods.map((p) => [p.id, p.code]))
 
@@ -42,9 +50,13 @@ export default async function ServicesPage() {
         <h1 className="text-2xl font-semibold tracking-tight">
           Servicios del día
         </h1>
-        <Link href="/dashboard/services/new" className={buttonVariants()}>
-          Nuevo servicio
-        </Link>
+        <div className="flex gap-2">
+          <RegisterMovementDialog kind="fine" models={models.map((m) => ({ id: m.id, name: m.name }))} />
+          <RegisterMovementDialog kind="loan" models={models.map((m) => ({ id: m.id, name: m.name }))} />
+          <Link href="/dashboard/services/new" className={buttonVariants()}>
+            Nuevo servicio
+          </Link>
+        </div>
       </div>
 
       {services.length === 0 ? (
@@ -117,6 +129,70 @@ export default async function ServicesPage() {
             </TableBody>
           </Table>
         </div>
+      )}
+
+      {fines.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="text-lg font-medium">Multas de hoy</h2>
+          <div className="rounded-lg border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Hora</TableHead>
+                  <TableHead>Modelo</TableHead>
+                  <TableHead className="text-right">Monto</TableHead>
+                  <TableHead>Motivo</TableHead>
+                  <TableHead className="text-right">Acciones</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {fines.map((f) => (
+                  <TableRow key={f.id} className={cn(f.deletedAt !== null && "bg-muted opacity-60")}>
+                    <TableCell>{formatBogotaDate(f.createdAt, { hour: "2-digit", minute: "2-digit" })}</TableCell>
+                    <TableCell>{modelName.get(f.modelId) ?? f.modelId}</TableCell>
+                    <TableCell className="text-right">{formatCOP(f.amount)}</TableCell>
+                    <TableCell className="text-muted-foreground">{f.reason}</TableCell>
+                    <TableCell className="text-right">
+                      {isAdmin && f.deletedAt === null && <DeleteMovementButton kind="fine" id={f.id} />}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </section>
+      )}
+
+      {loans.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="text-lg font-medium">Préstamos de hoy</h2>
+          <div className="rounded-lg border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Hora</TableHead>
+                  <TableHead>Modelo</TableHead>
+                  <TableHead className="text-right">Monto</TableHead>
+                  <TableHead>Motivo</TableHead>
+                  <TableHead className="text-right">Acciones</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loans.map((l) => (
+                  <TableRow key={l.id} className={cn(l.deletedAt !== null && "bg-muted opacity-60")}>
+                    <TableCell>{formatBogotaDate(l.createdAt, { hour: "2-digit", minute: "2-digit" })}</TableCell>
+                    <TableCell>{modelName.get(l.modelId) ?? l.modelId}</TableCell>
+                    <TableCell className="text-right">{formatCOP(l.amount)}</TableCell>
+                    <TableCell className="text-muted-foreground">{l.reason}</TableCell>
+                    <TableCell className="text-right">
+                      {isAdminOrMonitor && l.deletedAt === null && <DeleteMovementButton kind="loan" id={l.id} />}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </section>
       )}
     </div>
   )

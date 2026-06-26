@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { eq, and, between, isNull } from 'drizzle-orm'
 import { db } from '../db/client'
-import { services, serviceExtras, users } from '../db/schema'
+import { services, serviceExtras, users, fines, loans, payments } from '../db/schema'
 import { authMiddleware, type AppEnv } from '../middleware/auth'
 import { requireRole } from '../middleware/rbac'
 import { calcEarnings } from '../lib/earnings'
@@ -116,6 +116,44 @@ reportsRoutes.get('/model-earnings/:id', requireRole('admin'), async (c) => {
   )
 
   return c.json({ rows, totals })
+})
+
+reportsRoutes.get('/model-balance/:id', requireRole('admin'), async (c) => {
+  const modelId = c.req.param('id')!
+
+  const modelServices = await db.query.services.findMany({
+    where: (s, { and, eq: eqFn, isNull }) => and(eqFn(s.modelId, modelId), isNull(s.deletedAt)),
+  })
+  let totalEarnings = 0
+  for (const s of modelServices) {
+    const extras = await db.query.serviceExtras.findMany({
+      where: eq(serviceExtras.serviceId, s.id),
+    })
+    totalEarnings += calcEarnings(s.basePrice, extras.map((x) => x.amount)).modelTotal
+  }
+
+  const modelFines = await db.query.fines.findMany({
+    where: (f, { and, eq: eqFn, isNull }) => and(eqFn(f.modelId, modelId), isNull(f.deletedAt)),
+  })
+  const totalFines = modelFines.reduce((sum, f) => sum + f.amount, 0)
+
+  const modelLoans = await db.query.loans.findMany({
+    where: (l, { and, eq: eqFn, isNull }) => and(eqFn(l.modelId, modelId), isNull(l.deletedAt)),
+  })
+  const totalLoans = modelLoans.reduce((sum, l) => sum + l.amount, 0)
+
+  const modelPayments = await db.query.payments.findMany({
+    where: (p, { eq: eqFn }) => eqFn(p.modelId, modelId),
+  })
+  const totalPayments = modelPayments.reduce((sum, p) => sum + p.amount, 0)
+
+  return c.json({
+    balance: totalEarnings - totalFines - totalLoans - totalPayments,
+    totalEarnings,
+    totalFines,
+    totalLoans,
+    totalPayments,
+  })
 })
 
 reportsRoutes.get('/daily', requireRole('admin', 'monitor'), async (c) => {

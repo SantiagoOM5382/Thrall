@@ -22,7 +22,7 @@ const NAV: NavItem[] = [
   { href: "/dashboard/models", label: "Modelos", roles: ["admin"] },
   { href: "/dashboard/pay-methods", label: "Métodos de pago", roles: ["admin"] },
   { href: "/dashboard/profile", label: "Mi perfil", roles: ["model"] },
-  { href: "/dashboard/ranking", label: "Ranking", roles: ["admin", "monitor", "model"] },
+  { href: "/dashboard/ranking", label: "Ranking", roles: ["admin", "monitor"] },
 ]
 
 const ROLE_LABEL: Record<Role, string> = {

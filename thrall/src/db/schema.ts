@@ -90,3 +90,32 @@ export const brandSubscriptions = sqliteTable('brand_subscriptions', {
   createdAt: integer('created_at').notNull(),
   updatedAt: integer('updated_at').notNull(),
 })
+
+export const fines = sqliteTable('fines', {
+  id: text('id').primaryKey(),
+  modelId: text('model_id').notNull().references(() => users.id),
+  amount: integer('amount').notNull(),
+  reason: text('reason').notNull(),
+  createdBy: text('created_by').notNull().references(() => users.id),
+  createdAt: integer('created_at').notNull(),
+  deletedAt: integer('deleted_at'),
+})
+
+export const loans = sqliteTable('loans', {
+  id: text('id').primaryKey(),
+  modelId: text('model_id').notNull().references(() => users.id),
+  amount: integer('amount').notNull(),
+  reason: text('reason').notNull(),
+  createdBy: text('created_by').notNull().references(() => users.id),
+  createdAt: integer('created_at').notNull(),
+  deletedAt: integer('deleted_at'),
+})
+
+export const payments = sqliteTable('payments', {
+  id: text('id').primaryKey(),
+  modelId: text('model_id').notNull().references(() => users.id),
+  amount: integer('amount').notNull(),
+  payMethodId: text('pay_method_id').notNull().references(() => payMethods.id),
+  createdBy: text('created_by').notNull().references(() => users.id),
+  createdAt: integer('created_at').notNull(),
+})

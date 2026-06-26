@@ -51,8 +51,12 @@ export default async function ServicesPage() {
           Servicios del día
         </h1>
         <div className="flex gap-2">
-          <RegisterMovementDialog kind="fine" models={models.map((m) => ({ id: m.id, name: m.name }))} />
-          <RegisterMovementDialog kind="loan" models={models.map((m) => ({ id: m.id, name: m.name }))} />
+          {isAdminOrMonitor && (
+            <>
+              <RegisterMovementDialog kind="fine" models={models.map((m) => ({ id: m.id, name: m.name }))} />
+              <RegisterMovementDialog kind="loan" models={models.map((m) => ({ id: m.id, name: m.name }))} />
+            </>
+          )}
           <Link href="/dashboard/services/new" className={buttonVariants()}>
             Nuevo servicio
           </Link>

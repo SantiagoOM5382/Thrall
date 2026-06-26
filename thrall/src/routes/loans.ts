@@ -71,7 +71,7 @@ loansRoutes.post('/', requireRole('admin', 'monitor'), zValidator('json', create
 
 loansRoutes.delete('/:id', requireRole('admin', 'monitor'), async (c) => {
   const caller = c.get('user')
-  const id = c.req.param('id')
+  const id = c.req.param('id')!
 
   const existing = await db.query.loans.findFirst({
     where: (l, { and, eq: eqFn, isNull }) => and(eqFn(l.id, id), isNull(l.deletedAt)),

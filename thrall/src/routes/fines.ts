@@ -72,7 +72,7 @@ finesRoutes.post('/', requireRole('admin', 'monitor'), zValidator('json', create
 
 finesRoutes.delete('/:id', requireRole('admin'), async (c) => {
   const caller = c.get('user')
-  const id = c.req.param('id')
+  const id = c.req.param('id')!
 
   const existing = await db.query.fines.findFirst({
     where: (f, { and, eq: eqFn, isNull }) => and(eqFn(f.id, id), isNull(f.deletedAt)),

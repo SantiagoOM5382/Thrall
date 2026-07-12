@@ -18,7 +18,6 @@ const createSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
   role: z.enum(['admin', 'monitor', 'model']),
-  brandId: z.string(),
   phone: z.string().optional(),
   telegram: z.string().optional(),
   description: z.string().optional(),
@@ -34,8 +33,10 @@ function omitPassword<T extends { password?: string }>(u: T): Omit<T, 'password'
 }
 
 usersRoutes.get('/', async (c) => {
+  const caller = c.get('user')
   const all = await db.query.users.findMany({
-    where: (u, { isNull }) => isNull(u.deletedAt),
+    where: (u, { and, eq: eqFn, isNull }) =>
+      and(eqFn(u.brandId, caller.brandId), isNull(u.deletedAt)),
   })
   return c.json(all.map(omitPassword))
 })
@@ -49,6 +50,7 @@ usersRoutes.post('/', zValidator('json', createSchema), async (c) => {
   await db.insert(users).values({
     id,
     ...data,
+    brandId: caller.brandId, // scoped to the admin's own brand, never client-chosen
     password: await hashPassword(data.password),
     isActive: 1,
     createdAt: now,

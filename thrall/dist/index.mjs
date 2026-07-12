@@ -68534,7 +68534,6 @@ var createSchema = external_exports.object({
   email: external_exports.string().email(),
   password: external_exports.string().min(6),
   role: external_exports.enum(["admin", "monitor", "model"]),
-  brandId: external_exports.string(),
   phone: external_exports.string().optional(),
   telegram: external_exports.string().optional(),
   description: external_exports.string().optional()
@@ -68547,8 +68546,9 @@ function omitPassword(u) {
   return rest;
 }
 usersRoutes.get("/", async (c) => {
+  const caller = c.get("user");
   const all = await db.query.users.findMany({
-    where: (u, { isNull: isNull4 }) => isNull4(u.deletedAt)
+    where: (u, { and: and3, eq: eqFn, isNull: isNull4 }) => and3(eqFn(u.brandId, caller.brandId), isNull4(u.deletedAt))
   });
   return c.json(all.map(omitPassword));
 });
@@ -68560,6 +68560,8 @@ usersRoutes.post("/", zValidator("json", createSchema), async (c) => {
   await db.insert(users).values({
     id,
     ...data,
+    brandId: caller.brandId,
+    // scoped to the admin's own brand, never client-chosen
     password: await hashPassword(data.password),
     isActive: 1,
     createdAt: now,

@@ -70134,7 +70134,13 @@ imagesRoutes.post("/users/:userId", async (c) => {
   if (!file2 || typeof file2 === "string") {
     return c.json({ error: "No file provided" }, 400);
   }
-  const blob2 = await put(`models/${userId}/${newId()}`, file2, { access: "public" });
+  let blob2;
+  try {
+    blob2 = await put(`models/${userId}/${newId()}`, file2, { access: "public" });
+  } catch (e) {
+    const message2 = e instanceof Error ? e.message : "Blob upload failed";
+    return c.json({ error: message2 }, 500);
+  }
   const id = newId();
   const now = Date.now();
   await db.insert(userImages).values({

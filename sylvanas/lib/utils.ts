@@ -65,3 +65,10 @@ export function dayStartBogotaMs(date: string): number {
 export function dayEndBogotaMs(date: string): number {
   return new Date(`${date}T23:59:59.999-05:00`).getTime()
 }
+
+/** "YYYY-MM-DD" day key in America/Bogota, for grouping by day. */
+export function bogotaDayKey(ms: number): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Bogota" }).format(
+    new Date(ms)
+  )
+}

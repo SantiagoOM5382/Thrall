@@ -14,10 +14,17 @@ export function ImageUploader({ userId }: { userId: string }) {
   function onSubmit(formData: FormData) {
     startTransition(async () => {
       const res = await uploadModelImage(userId, formData)
+      if (res.uploaded && res.uploaded > 0) {
+        toast.success(
+          res.uploaded === 1
+            ? "Imagen subida"
+            : `${res.uploaded} imágenes subidas`
+        )
+      }
       if (res.error) {
         toast.error(res.error)
-      } else {
-        toast.success("Imagen subida")
+      }
+      if (!res.error) {
         formRef.current?.reset()
         setHasFile(false)
       }
@@ -30,11 +37,12 @@ export function ImageUploader({ userId }: { userId: string }) {
         type="file"
         name="file"
         accept="image/*"
+        multiple
         onChange={(e) => setHasFile(!!e.target.files?.length)}
         className="max-w-xs"
       />
       <Button type="submit" disabled={!hasFile || isPending}>
-        {isPending ? "Subiendo…" : "Subir imagen"}
+        {isPending ? "Subiendo…" : "Subir imágenes"}
       </Button>
     </form>
   )

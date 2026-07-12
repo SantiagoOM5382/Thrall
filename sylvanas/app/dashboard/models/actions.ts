@@ -9,33 +9,44 @@ const COOKIE_NAME = "arthas_token"
 export async function uploadModelImage(
   userId: string,
   formData: FormData
-): Promise<{ error?: string }> {
-  const file = formData.get("file")
-  if (!file || !(file instanceof File) || file.size === 0) {
-    return { error: "Selecciona una imagen" }
+): Promise<{ error?: string; uploaded?: number }> {
+  const files = formData
+    .getAll("file")
+    .filter((f): f is File => f instanceof File && f.size > 0)
+
+  if (files.length === 0) {
+    return { error: "Selecciona al menos una imagen" }
   }
 
   const token = (await cookies()).get(COOKIE_NAME)?.value
-  const fd = new FormData()
-  fd.append("file", file)
 
-  const res = await fetch(
-    `${process.env.THRALL_URL}/api/images/users/${userId}`,
-    {
-      method: "POST",
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-      body: fd,
-      cache: "no-store",
-    }
-  )
-
-  if (!res.ok) {
+  async function uploadOne(file: File): Promise<string | null> {
+    const fd = new FormData()
+    fd.append("file", file)
+    const res = await fetch(
+      `${process.env.THRALL_URL}/api/images/users/${userId}`,
+      {
+        method: "POST",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: fd,
+        cache: "no-store",
+      }
+    )
+    if (res.ok) return null
     const body = await res.json().catch(() => ({}))
-    return { error: body.error ?? "Error al subir la imagen" }
+    return body.error ?? `Error al subir ${file.name}`
   }
 
+  const results = await Promise.all(files.map(uploadOne))
+  const failures = results.filter((r): r is string => r !== null)
+
   revalidatePath(`/dashboard/models/${userId}`)
-  return {}
+
+  const uploaded = files.length - failures.length
+  if (failures.length > 0) {
+    return { uploaded, error: failures[0] }
+  }
+  return { uploaded }
 }
 
 export async function deleteModelImage(

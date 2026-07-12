@@ -24,6 +24,7 @@ import { DeleteServiceButton } from "./delete-service-button"
 import { RegisterMovementDialog } from "./register-movement-dialog"
 import { DeleteMovementButton } from "./delete-movement-button"
 import { DayPicker } from "./day-picker"
+import { EditableBase } from "./editable-base"
 import { getSession } from "@/lib/session"
 
 export const dynamic = "force-dynamic"
@@ -137,7 +138,11 @@ export default async function ServicesPage({
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      {formatCOP(s.basePrice)}
+                      {deleted ? (
+                        formatCOP(s.basePrice)
+                      ) : (
+                        <EditableBase id={s.id} value={s.basePrice} />
+                      )}
                     </TableCell>
                     <TableCell className="text-right">
                       {s.extras.length > 0 ? formatCOP(earnings.modelExtras) : "—"}

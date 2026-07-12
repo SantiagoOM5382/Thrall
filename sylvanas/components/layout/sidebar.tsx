@@ -19,6 +19,7 @@ const NAV: NavItem[] = [
   { href: "/dashboard/services", label: "Servicios", roles: ["admin", "monitor"] },
   { href: "/dashboard/earnings", label: "Ganancias empresa", roles: ["admin"] },
   { href: "/dashboard/model-earnings", label: "Ganancias por modelo", roles: ["admin"] },
+  { href: "/dashboard/users", label: "Usuarios", roles: ["admin"] },
   { href: "/dashboard/models", label: "Modelos", roles: ["admin"] },
   { href: "/dashboard/pay-methods", label: "Métodos de pago", roles: ["admin"] },
   { href: "/dashboard/profile", label: "Mi perfil", roles: ["model"] },

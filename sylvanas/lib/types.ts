@@ -22,6 +22,8 @@ export interface Model {
   images: ModelImage[]
 }
 
+export type User = Omit<Model, "images">
+
 export interface PayMethod {
   id: string
   code: string

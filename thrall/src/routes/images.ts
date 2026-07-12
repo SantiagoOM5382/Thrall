@@ -26,7 +26,13 @@ imagesRoutes.post('/users/:userId', async (c) => {
     return c.json({ error: 'No file provided' }, 400)
   }
 
-  const blob = await put(`models/${userId}/${newId()}`, file, { access: 'public' })
+  let blob
+  try {
+    blob = await put(`models/${userId}/${newId()}`, file, { access: 'public' })
+  } catch (e) {
+    const message = e instanceof Error ? e.message : 'Blob upload failed'
+    return c.json({ error: message }, 500)
+  }
 
   const id = newId()
   const now = Date.now()

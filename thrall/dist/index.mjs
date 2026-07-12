@@ -70584,6 +70584,20 @@ finesRoutes.post("/", requireRole("admin", "monitor"), zValidator("json", create
   const created = await db.query.fines.findFirst({ where: eq(fines.id, id) });
   return c.json(created, 201);
 });
+var amountSchema = external_exports.object({ amount: external_exports.number().int().positive() });
+finesRoutes.put("/:id", requireRole("admin"), zValidator("json", amountSchema), async (c) => {
+  const caller = c.get("user");
+  const id = c.req.param("id");
+  const { amount } = c.req.valid("json");
+  const existing = await db.query.fines.findFirst({
+    where: (f, { and: and3, eq: eqFn, isNull: isNull4 }) => and3(eqFn(f.id, id), isNull4(f.deletedAt))
+  });
+  if (!existing) return c.json({ error: "Not found" }, 404);
+  await db.update(fines).set({ amount }).where(eq(fines.id, id));
+  await logAudit(db, { userId: caller.sub, action: "UPDATE", entity: "fine", entityId: id });
+  const updated = await db.query.fines.findFirst({ where: eq(fines.id, id) });
+  return c.json(updated);
+});
 finesRoutes.delete("/:id", requireRole("admin"), async (c) => {
   const caller = c.get("user");
   const id = c.req.param("id");
@@ -70646,6 +70660,20 @@ loansRoutes.post("/", requireRole("admin", "monitor"), zValidator("json", create
   await logAudit(db, { userId: caller.sub, action: "CREATE", entity: "loan", entityId: id });
   const created = await db.query.loans.findFirst({ where: eq(loans.id, id) });
   return c.json(created, 201);
+});
+var amountSchema2 = external_exports.object({ amount: external_exports.number().int().positive() });
+loansRoutes.put("/:id", requireRole("admin", "monitor"), zValidator("json", amountSchema2), async (c) => {
+  const caller = c.get("user");
+  const id = c.req.param("id");
+  const { amount } = c.req.valid("json");
+  const existing = await db.query.loans.findFirst({
+    where: (l, { and: and3, eq: eqFn, isNull: isNull4 }) => and3(eqFn(l.id, id), isNull4(l.deletedAt))
+  });
+  if (!existing) return c.json({ error: "Not found" }, 404);
+  await db.update(loans).set({ amount }).where(eq(loans.id, id));
+  await logAudit(db, { userId: caller.sub, action: "UPDATE", entity: "loan", entityId: id });
+  const updated = await db.query.loans.findFirst({ where: eq(loans.id, id) });
+  return c.json(updated);
 });
 loansRoutes.delete("/:id", requireRole("admin", "monitor"), async (c) => {
   const caller = c.get("user");

@@ -70,6 +70,24 @@ finesRoutes.post('/', requireRole('admin', 'monitor'), zValidator('json', create
   return c.json(created, 201)
 })
 
+const amountSchema = z.object({ amount: z.number().int().positive() })
+
+finesRoutes.put('/:id', requireRole('admin'), zValidator('json', amountSchema), async (c) => {
+  const caller = c.get('user')
+  const id = c.req.param('id')!
+  const { amount } = c.req.valid('json')
+
+  const existing = await db.query.fines.findFirst({
+    where: (f, { and, eq: eqFn, isNull }) => and(eqFn(f.id, id), isNull(f.deletedAt)),
+  })
+  if (!existing) return c.json({ error: 'Not found' }, 404)
+
+  await db.update(fines).set({ amount }).where(eq(fines.id, id))
+  await logAudit(db, { userId: caller.sub, action: 'UPDATE', entity: 'fine', entityId: id })
+  const updated = await db.query.fines.findFirst({ where: eq(fines.id, id) })
+  return c.json(updated)
+})
+
 finesRoutes.delete('/:id', requireRole('admin'), async (c) => {
   const caller = c.get('user')
   const id = c.req.param('id')!

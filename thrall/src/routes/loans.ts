@@ -69,6 +69,24 @@ loansRoutes.post('/', requireRole('admin', 'monitor'), zValidator('json', create
   return c.json(created, 201)
 })
 
+const amountSchema = z.object({ amount: z.number().int().positive() })
+
+loansRoutes.put('/:id', requireRole('admin', 'monitor'), zValidator('json', amountSchema), async (c) => {
+  const caller = c.get('user')
+  const id = c.req.param('id')!
+  const { amount } = c.req.valid('json')
+
+  const existing = await db.query.loans.findFirst({
+    where: (l, { and, eq: eqFn, isNull }) => and(eqFn(l.id, id), isNull(l.deletedAt)),
+  })
+  if (!existing) return c.json({ error: 'Not found' }, 404)
+
+  await db.update(loans).set({ amount }).where(eq(loans.id, id))
+  await logAudit(db, { userId: caller.sub, action: 'UPDATE', entity: 'loan', entityId: id })
+  const updated = await db.query.loans.findFirst({ where: eq(loans.id, id) })
+  return c.json(updated)
+})
+
 loansRoutes.delete('/:id', requireRole('admin', 'monitor'), async (c) => {
   const caller = c.get('user')
   const id = c.req.param('id')!

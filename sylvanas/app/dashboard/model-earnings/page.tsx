@@ -1,5 +1,5 @@
 import { apiFetch } from "@/lib/api"
-import type { Model } from "@/lib/types"
+import type { Model, ModelBalance, Payment, PayMethod } from "@/lib/types"
 import {
   formatCOP,
   formatDuration,
@@ -7,9 +7,12 @@ import {
   todayBogota,
   dayStartBogotaMs,
   dayEndBogotaMs,
+  cn,
 } from "@/lib/utils"
 import { DateRangePicker } from "@/components/shared/date-range-picker"
 import { ModelSelect } from "./model-select"
+import { PaymentDialog } from "./payment-dialog"
+import { Card, CardContent } from "@/components/ui/card"
 import {
   Table,
   TableBody,
@@ -51,11 +54,30 @@ export default async function ModelEarningsPage({
   const to = sp.to ?? today
 
   let report: ModelEarningsReport | null = null
+  let balance: ModelBalance | null = null
+  let payments: Payment[] = []
+  let payOptions: { id: string; label: string }[] = []
+  let payCode = new Map<string, string>()
   if (sp.modelId) {
     const fromMs = dayStartBogotaMs(from)
     const toMs = dayEndBogotaMs(to)
-    report = await apiFetch<ModelEarningsReport>(
-      `/reports/model-earnings/${sp.modelId}?from=${fromMs}&to=${toMs}`
+    const [reportRes, balanceRes, paymentsRes, payMethodsRes] = await Promise.all([
+      apiFetch<ModelEarningsReport>(
+        `/reports/model-earnings/${sp.modelId}?from=${fromMs}&to=${toMs}`
+      ),
+      apiFetch<ModelBalance>(`/reports/model-balance/${sp.modelId}`),
+      apiFetch<Payment[]>(`/payments?modelId=${sp.modelId}`),
+      apiFetch<PayMethod[]>("/pay-methods"),
+    ])
+    report = reportRes
+    balance = balanceRes
+    payments = paymentsRes
+    payOptions = payMethodsRes.map((p) => ({
+      id: p.id,
+      label: p.displayName ? `${p.code} — ${p.displayName}` : p.code,
+    }))
+    payCode = new Map(
+      payMethodsRes.map((p) => [p.id, p.displayName ? `${p.code} — ${p.displayName}` : p.code])
     )
   }
 
@@ -69,6 +91,48 @@ export default async function ModelEarningsPage({
         <ModelSelect models={models.map((m) => ({ id: m.id, name: m.name }))} />
         <DateRangePicker />
       </div>
+
+      {sp.modelId && balance && (
+        <Card>
+          <CardContent className="space-y-2 py-4">
+            <p className="text-sm text-muted-foreground">Saldo a pagar</p>
+            <p className={cn("text-3xl font-semibold", balance.balance < 0 && "text-destructive")}>
+              {formatCOP(balance.balance)}
+            </p>
+            <div className="grid grid-cols-2 gap-2 pt-2 text-sm sm:grid-cols-4">
+              <div><span className="text-muted-foreground">Ganancias </span>{formatCOP(balance.totalEarnings)}</div>
+              <div><span className="text-muted-foreground">− Multas </span>{formatCOP(balance.totalFines)}</div>
+              <div><span className="text-muted-foreground">− Préstamos </span>{formatCOP(balance.totalLoans)}</div>
+              <div><span className="text-muted-foreground">− Pagos </span>{formatCOP(balance.totalPayments)}</div>
+            </div>
+            <div className="pt-3">
+              <PaymentDialog modelId={sp.modelId} currentBalance={balance.balance} payMethods={payOptions} />
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {sp.modelId && payments.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="text-lg font-medium">Historial de pagos</h2>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Fecha</TableHead><TableHead>Monto</TableHead><TableHead>Método</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {payments.map((p) => (
+                <TableRow key={p.id}>
+                  <TableCell>{formatBogotaDate(p.createdAt)}</TableCell>
+                  <TableCell>{formatCOP(p.amount)}</TableCell>
+                  <TableCell>{payCode.get(p.payMethodId) ?? p.payMethodId}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </section>
+      )}
 
       {!sp.modelId ? (
         <p className="text-muted-foreground">

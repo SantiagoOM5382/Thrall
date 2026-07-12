@@ -7,6 +7,8 @@ import {
   formatBogotaDate,
   calcEarnings,
   cn,
+  todayBogota,
+  bogotaDayKey,
 } from "@/lib/utils"
 import { buttonVariants } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -21,6 +23,7 @@ import {
 import { DeleteServiceButton } from "./delete-service-button"
 import { RegisterMovementDialog } from "./register-movement-dialog"
 import { DeleteMovementButton } from "./delete-movement-button"
+import { DayPicker } from "./day-picker"
 import { getSession } from "@/lib/session"
 
 export const dynamic = "force-dynamic"
@@ -36,11 +39,32 @@ async function loadData() {
   return { services, models, payMethods, fines, loans }
 }
 
-export default async function ServicesPage() {
-  const { services, models, payMethods, fines, loans } = await loadData()
+export default async function ServicesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ date?: string }>
+}) {
+  const {
+    services: allServices,
+    models,
+    payMethods,
+    fines: allFines,
+    loans: allLoans,
+  } = await loadData()
   const session = await getSession()
   const isAdmin = session?.role === "admin"
   const isAdminOrMonitor = session?.role === "admin" || session?.role === "monitor"
+
+  // Day filter: default today (Bogota). Admin receives all history, so filter
+  // client-side; monitor only receives today's data from the backend anyway.
+  const sp = await searchParams
+  const selectedDay = sp.date ?? todayBogota()
+  const services = allServices.filter(
+    (s) => bogotaDayKey(s.startTime) === selectedDay
+  )
+  const fines = allFines.filter((f) => bogotaDayKey(f.createdAt) === selectedDay)
+  const loans = allLoans.filter((l) => bogotaDayKey(l.createdAt) === selectedDay)
+
   const modelName = new Map(models.map((m) => [m.id, m.name]))
   const payCode = new Map(payMethods.map((p) => [p.id, p.code]))
 
@@ -50,7 +74,8 @@ export default async function ServicesPage() {
         <h1 className="text-2xl font-semibold tracking-tight">
           Servicios del día
         </h1>
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2">
+          {isAdmin && <DayPicker value={selectedDay} />}
           {isAdminOrMonitor && (
             <>
               <RegisterMovementDialog kind="fine" models={models.map((m) => ({ id: m.id, name: m.name }))} />
@@ -65,7 +90,7 @@ export default async function ServicesPage() {
 
       {services.length === 0 ? (
         <p className="py-16 text-center text-muted-foreground">
-          No hay servicios registrados hoy.
+          No hay servicios registrados en este día.
         </p>
       ) : (
         <div className="rounded-lg border">
@@ -137,7 +162,7 @@ export default async function ServicesPage() {
 
       {fines.length > 0 && (
         <section className="space-y-3">
-          <h2 className="text-lg font-medium">Multas de hoy</h2>
+          <h2 className="text-lg font-medium">Multas del día</h2>
           <div className="rounded-lg border">
             <Table>
               <TableHeader>
@@ -169,7 +194,7 @@ export default async function ServicesPage() {
 
       {loans.length > 0 && (
         <section className="space-y-3">
-          <h2 className="text-lg font-medium">Préstamos de hoy</h2>
+          <h2 className="text-lg font-medium">Préstamos del día</h2>
           <div className="rounded-lg border">
             <Table>
               <TableHeader>

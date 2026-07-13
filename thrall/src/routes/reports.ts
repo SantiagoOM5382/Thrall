@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { eq, and, between, isNull } from 'drizzle-orm'
 import { db } from '../db/client'
-import { services, serviceExtras, users, fines, loans, payments } from '../db/schema'
+import { services, serviceExtras, users, fines, loans, payments, brands } from '../db/schema'
 import { authMiddleware, type AppEnv } from '../middleware/auth'
 import { requireRole } from '../middleware/rbac'
 import { calcEarnings } from '../lib/earnings'
@@ -154,6 +154,46 @@ reportsRoutes.get('/model-balance/:id', requireRole('admin'), async (c) => {
     totalLoans,
     totalPayments,
   })
+})
+
+reportsRoutes.get('/brand-earnings', requireRole('dev'), async (c) => {
+  const from = Number(c.req.query('from') ?? 0)
+  const to = Number(c.req.query('to') ?? Date.now())
+
+  const allBrands = await db.query.brands.findMany({ orderBy: (b, { asc }) => [asc(b.name)] })
+  const models = await db.query.users.findMany({ where: (u, { eq: eqFn }) => eqFn(u.role, 'model') })
+  const modelBrand = new Map(models.map((m) => [m.id, m.brandId]))
+
+  const svcs = await db.query.services.findMany({
+    where: (s, { and, between, isNull }) => and(between(s.startTime, from, to), isNull(s.deletedAt)),
+  })
+
+  const acc = new Map<string, { totalServices: number; totalBase: number; companyEarnings: number; modelTotalEarnings: number }>()
+  for (const b of allBrands) acc.set(b.id, { totalServices: 0, totalBase: 0, companyEarnings: 0, modelTotalEarnings: 0 })
+
+  for (const s of svcs) {
+    const brandId = modelBrand.get(s.modelId)
+    if (!brandId || !acc.has(brandId)) continue
+    const extras = await db.query.serviceExtras.findMany({ where: eq(serviceExtras.serviceId, s.id) })
+    const e = calcEarnings(s.basePrice, extras.map((x) => x.amount))
+    const a = acc.get(brandId)!
+    a.totalServices += 1
+    a.totalBase += s.basePrice
+    a.companyEarnings += e.company
+    a.modelTotalEarnings += e.modelTotal
+  }
+
+  const rows = allBrands.map((b) => ({ brandId: b.id, brandName: b.name, ...acc.get(b.id)! }))
+  const totals = rows.reduce(
+    (t, r) => ({
+      totalServices: t.totalServices + r.totalServices,
+      totalBase: t.totalBase + r.totalBase,
+      companyEarnings: t.companyEarnings + r.companyEarnings,
+      modelTotalEarnings: t.modelTotalEarnings + r.modelTotalEarnings,
+    }),
+    { totalServices: 0, totalBase: 0, companyEarnings: 0, modelTotalEarnings: 0 }
+  )
+  return c.json({ rows, totals })
 })
 
 reportsRoutes.get('/daily', requireRole('admin', 'monitor'), async (c) => {

@@ -11,13 +11,14 @@ import { hashPassword } from '../lib/hash'
 import { logAudit } from '../lib/audit'
 
 export const usersRoutes = new Hono<AppEnv>()
-usersRoutes.use('*', authMiddleware, requireRole('admin'))
+usersRoutes.use('*', authMiddleware, requireRole('admin', 'dev'))
 
 const createSchema = z.object({
   name: z.string().min(1),
   email: z.string().email(),
   password: z.string().min(6),
-  role: z.enum(['admin', 'monitor', 'model']),
+  role: z.enum(['admin', 'monitor', 'model', 'dev']),
+  brandId: z.string().optional(),
   phone: z.string().optional(),
   telegram: z.string().optional(),
   description: z.string().optional(),
@@ -34,9 +35,17 @@ function omitPassword<T extends { password?: string }>(u: T): Omit<T, 'password'
 
 usersRoutes.get('/', async (c) => {
   const caller = c.get('user')
+  const brandFilter = c.req.query('brandId')
   const all = await db.query.users.findMany({
-    where: (u, { and, eq: eqFn, isNull }) =>
-      and(eqFn(u.brandId, caller.brandId), isNull(u.deletedAt)),
+    where: (u, { and, eq: eqFn, isNull }) => {
+      const conds = [isNull(u.deletedAt)]
+      if (caller.role === 'dev') {
+        if (brandFilter) conds.push(eqFn(u.brandId, brandFilter))
+      } else {
+        conds.push(eqFn(u.brandId, caller.brandId))
+      }
+      return and(...conds)
+    },
   })
   return c.json(all.map(omitPassword))
 })
@@ -44,13 +53,16 @@ usersRoutes.get('/', async (c) => {
 usersRoutes.post('/', zValidator('json', createSchema), async (c) => {
   const data = c.req.valid('json')
   const caller = c.get('user')
+  const targetBrandId = caller.role === 'dev' ? data.brandId : caller.brandId
+  if (!targetBrandId) return c.json({ error: 'brandId is required' }, 400)
+
   const id = newId()
   const now = Date.now()
-
+  const { brandId: _ignored, ...rest } = data
   await db.insert(users).values({
     id,
-    ...data,
-    brandId: caller.brandId, // scoped to the admin's own brand, never client-chosen
+    ...rest,
+    brandId: targetBrandId,
     password: await hashPassword(data.password),
     isActive: 1,
     createdAt: now,

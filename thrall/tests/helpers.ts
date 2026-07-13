@@ -26,7 +26,7 @@ export async function createTestBrand() {
 
 export async function createTestUser(
   brandId: string,
-  overrides: Partial<{ role: 'admin' | 'monitor' | 'model'; email: string; name: string }> = {}
+  overrides: Partial<{ role: 'admin' | 'monitor' | 'model' | 'dev'; email: string; name: string }> = {}
 ) {
   const id = newId()
   const email = overrides.email ?? `user-${id}@test.com`
@@ -44,7 +44,7 @@ export async function createTestUser(
   return { id, email, password: 'password123' }
 }
 
-export async function tokenFor(userId: string, role: 'admin' | 'monitor' | 'model', brandId: string) {
+export async function tokenFor(userId: string, role: 'admin' | 'monitor' | 'model' | 'dev', brandId: string) {
   return signToken({ sub: userId, role, brandId, name: 'Test' })
 }
 

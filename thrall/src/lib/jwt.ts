@@ -2,7 +2,7 @@ import { SignJWT, jwtVerify } from 'jose'
 
 export interface TokenPayload {
   sub: string
-  role: 'admin' | 'monitor' | 'model'
+  role: 'admin' | 'monitor' | 'model' | 'dev'
   brandId: string
   name: string
 }

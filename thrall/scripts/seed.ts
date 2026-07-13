@@ -57,8 +57,19 @@ async function seed() {
     })
   }
 
+  const platformBrandId = newId()
+  await db.insert(brands).values({
+    id: platformBrandId, name: 'Plataforma', isActive: 1, createdAt: Date.now(), updatedAt: Date.now(),
+  })
+  await db.insert(users).values({
+    id: newId(), brandId: platformBrandId, name: 'Dev', email: 'dev@arthas.co',
+    password: await hashPassword('Dev1234!'), role: 'dev', isActive: 1,
+    createdAt: Date.now(), updatedAt: Date.now(),
+  })
+
   console.log('✓ Seed complete')
   console.log('  Admin: admin@arthas.co / Admin1234!')
+  console.log('  Dev:   dev@arthas.co / Dev1234!')
   process.exit(0)
 }
 

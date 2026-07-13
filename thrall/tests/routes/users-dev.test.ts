@@ -38,4 +38,33 @@ describe('users route — dev', () => {
     const fBody = await filtered.json()
     expect(fBody.every((u: { brandId: string }) => u.brandId === brandA)).toBe(true)
   })
+
+  it('admin CANNOT create a dev user (privilege escalation blocked)', async () => {
+    const brandId = await createTestBrand()
+    const admin = await createTestUser(brandId, { role: 'admin' })
+    const token = await tokenFor(admin.id, 'admin', brandId)
+    const res = await app.request('/api/users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        name: 'Evil', email: `evil-${Date.now()}@t.co`, password: 'secret123', role: 'dev',
+      }),
+    })
+    expect(res.status).toBe(403)
+  })
+
+  it('dev creating a user in a non-existent brand returns 404', async () => {
+    const platformBrand = await createTestBrand()
+    const dev = await createTestUser(platformBrand, { role: 'dev' })
+    const token = await tokenFor(dev.id, 'dev', platformBrand)
+    const res = await app.request('/api/users', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({
+        name: 'A', email: `a-${Date.now()}@t.co`, password: 'secret123',
+        role: 'admin', brandId: 'does-not-exist',
+      }),
+    })
+    expect(res.status).toBe(404)
+  })
 })

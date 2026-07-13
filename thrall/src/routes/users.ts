@@ -53,8 +53,24 @@ usersRoutes.get('/', async (c) => {
 usersRoutes.post('/', zValidator('json', createSchema), async (c) => {
   const data = c.req.valid('json')
   const caller = c.get('user')
+
+  // Only a dev may create dev users; an admin creating a dev would escalate to
+  // a cross-brand superuser, bypassing tenant isolation.
+  if (data.role === 'dev' && caller.role !== 'dev') {
+    return c.json({ error: 'Forbidden' }, 403)
+  }
+
   const targetBrandId = caller.role === 'dev' ? data.brandId : caller.brandId
   if (!targetBrandId) return c.json({ error: 'brandId is required' }, 400)
+
+  // Dev supplies the target brand from the body; verify it exists (FKs are not
+  // enforced by libsql by default).
+  if (caller.role === 'dev') {
+    const brand = await db.query.brands.findFirst({
+      where: (b, { eq: eqFn }) => eqFn(b.id, targetBrandId),
+    })
+    if (!brand) return c.json({ error: 'Brand not found' }, 404)
+  }
 
   const id = newId()
   const now = Date.now()

@@ -90,3 +90,22 @@ export interface ModelBalance {
   totalLoans: number
   totalPayments: number
 }
+
+export interface BrandEarningRow {
+  brandId: string
+  brandName: string
+  totalServices: number
+  totalBase: number
+  companyEarnings: number
+  modelTotalEarnings: number
+}
+
+export interface BrandEarningsReport {
+  rows: BrandEarningRow[]
+  totals: {
+    totalServices: number
+    totalBase: number
+    companyEarnings: number
+    modelTotalEarnings: number
+  }
+}

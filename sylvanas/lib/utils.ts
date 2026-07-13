@@ -66,6 +66,11 @@ export function dayEndBogotaMs(date: string): number {
   return new Date(`${date}T23:59:59.999-05:00`).getTime()
 }
 
+/** First day of the current month as "YYYY-MM-DD" in America/Bogota. */
+export function firstOfMonthBogota(): string {
+  return todayBogota().slice(0, 8) + "01"
+}
+
 /** "YYYY-MM-DD" day key in America/Bogota, for grouping by day. */
 export function bogotaDayKey(ms: number): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Bogota" }).format(

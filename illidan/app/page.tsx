@@ -1,8 +1,6 @@
 import Link from "next/link"
 import { apiFetchPublic } from "@/lib/api"
 import type { Model } from "@/lib/types"
-import { ModelAvatar } from "@/components/model-avatar"
-import { Card, CardContent } from "@/components/ui/card"
 
 export const revalidate = 3600
 
@@ -14,47 +12,77 @@ async function getModels(): Promise<Model[]> {
   }
 }
 
+function initials(name: string): string {
+  return name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase() ?? "")
+    .join("")
+}
+
 export default async function LandingPage() {
   const models = await getModels()
-  const appName = process.env.NEXT_PUBLIC_APP_NAME ?? "Arthas"
 
   return (
-    <main className="mx-auto max-w-6xl px-4 py-12">
-      <header className="mb-10 text-center">
-        <h1 className="text-4xl font-semibold tracking-tight">{appName}</h1>
-        <p className="mt-2 text-muted-foreground">Nuestras modelos</p>
-      </header>
+    <div className="mx-auto max-w-6xl px-4 py-14 sm:px-6 sm:py-20">
+      {/* Editorial masthead — an eyebrow, not a headline */}
+      <div className="mb-10 flex items-end justify-between border-b border-[var(--hair)] pb-5">
+        <p className="text-xs uppercase tracking-[0.24em] text-[var(--taupe)]">
+          Elenco
+        </p>
+        <p className="font-display text-sm italic text-[var(--taupe)]">
+          {models.length}{" "}
+          {models.length === 1 ? "modelo" : "modelos"}
+        </p>
+      </div>
 
       {models.length === 0 ? (
-        <p className="py-20 text-center text-muted-foreground">
-          No hay modelos disponibles en este momento.
+        <p className="py-24 text-center font-display text-2xl italic text-[var(--taupe)]">
+          Pronto, nuevas presencias.
         </p>
       ) : (
-        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {models.map((model) => (
-            <Link key={model.id} href={`/models/${model.id}`} className="group">
-              <Card className="overflow-hidden p-0 transition-shadow group-hover:shadow-lg">
-                <div className="relative aspect-[3/4] w-full overflow-hidden bg-muted">
-                  <ModelAvatar
-                    url={model.images[0]?.url}
-                    name={model.name}
-                    size="lg"
-                    className="transition-transform duration-300 group-hover:scale-105"
-                  />
-                </div>
-                <CardContent className="p-4">
-                  <h2 className="font-medium">{model.name}</h2>
-                  {model.description && (
-                    <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">
-                      {model.description}
-                    </p>
-                  )}
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
-        </div>
+        <ul className="grid grid-cols-1 gap-x-6 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
+          {models.map((model) => {
+            const cover = model.images[0]?.url
+            return (
+              <li key={model.id}>
+                <Link
+                  href={`/models/${model.id}`}
+                  className="group block focus-visible:outline-none"
+                >
+                  <div className="relative aspect-[3/4] w-full overflow-hidden bg-[var(--surface)] ring-1 ring-[var(--hair)] transition-[box-shadow] duration-500 group-hover:ring-[var(--gold)]/40 group-focus-visible:ring-2 group-focus-visible:ring-[var(--gold)]">
+                    {cover ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={cover}
+                        alt={model.name}
+                        className="h-full w-full object-cover transition-transform duration-[900ms] ease-out group-hover:scale-[1.04]"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center">
+                        <span className="font-display text-6xl text-[var(--gold)]/40">
+                          {initials(model.name)}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Scrim + name overlay — the signature treatment */}
+                    <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent p-5 pt-16">
+                      <p className="mb-1 text-[0.65rem] uppercase tracking-[0.2em] text-[var(--gold)] opacity-0 transition-opacity duration-500 group-hover:opacity-100">
+                        Ver perfil
+                      </p>
+                      <h2 className="font-display text-3xl leading-none text-[var(--ivory)]">
+                        {model.name}
+                      </h2>
+                    </div>
+                  </div>
+                </Link>
+              </li>
+            )
+          })}
+        </ul>
       )}
-    </main>
+    </div>
   )
 }

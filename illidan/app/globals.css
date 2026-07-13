@@ -121,10 +121,33 @@
   * {
     @apply border-border outline-ring/50;
   }
-  body {
-    @apply bg-background text-foreground;
-  }
   html {
     @apply font-sans;
   }
+}
+
+/* ── Illidan editorial theme ─────────────────────────────────────────
+   A photography-forward lookbook: warm espresso ground, ivory ink,
+   champagne-gold accent. Set outside @layer so it wins over shadcn base. */
+:root {
+  --ivory: #f3eee6;
+  --espresso: #16130f;
+  --surface: #1f1b16;
+  --taupe: #a79b8b;
+  --gold: #c9a46a;
+  --hair: rgb(243 238 230 / 0.1);
+}
+
+body {
+  background-color: var(--espresso);
+  color: var(--ivory);
+}
+
+.font-display {
+  font-family: var(--font-display), Georgia, "Times New Roman", serif;
+}
+
+::selection {
+  background: var(--gold);
+  color: var(--espresso);
 }

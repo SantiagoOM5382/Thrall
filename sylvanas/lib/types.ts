@@ -24,6 +24,14 @@ export interface Model {
 
 export type User = Omit<Model, "images">
 
+export interface Brand {
+  id: string
+  name: string
+  isActive: number
+  createdAt: number
+  updatedAt: number
+}
+
 export interface PayMethod {
   id: string
   code: string

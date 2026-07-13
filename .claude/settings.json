@@ -26,7 +26,22 @@
       "Bash(node -e ' *)",
       "Bash(/home/analista_ti/.claude/plugins/cache/claude-plugins-official/superpowers/6.0.3/skills/subagent-driven-development/scripts/review-package 92c80a5 HEAD)",
       "Bash(/home/analista_ti/.claude/plugins/cache/claude-plugins-official/superpowers/6.0.3/skills/subagent-driven-development/scripts/review-package da397d4 *)",
-      "Bash(/home/analista_ti/.claude/plugins/cache/claude-plugins-official/superpowers/6.0.3/skills/subagent-driven-development/scripts/review-package 5fc4fb2 HEAD)"
+      "Bash(/home/analista_ti/.claude/plugins/cache/claude-plugins-official/superpowers/6.0.3/skills/subagent-driven-development/scripts/review-package 5fc4fb2 HEAD)",
+      "Bash(/home/analista_ti/.claude/plugins/cache/claude-plugins-official/superpowers/6.0.3/skills/subagent-driven-development/scripts/review-package 5f9b562 HEAD)",
+      "Bash(/home/analista_ti/.claude/plugins/cache/claude-plugins-official/superpowers/6.0.3/skills/subagent-driven-development/scripts/review-package 12b32cb HEAD)",
+      "Bash(/home/analista_ti/.claude/plugins/cache/claude-plugins-official/superpowers/6.0.3/skills/subagent-driven-development/scripts/review-package a628fe0 *)",
+      "Bash(git -C /home/analista_ti/sty/arthas log --oneline)",
+      "Bash(cat /home/analista_ti/.claude/plugins/cache/claude-plugins-official/superpowers/6.0.3/skills/requesting-code-review/code-reviewer.md 2>/dev/null | head -5 || echo \"Not found\")",
+      "Read(//home/analista_ti/.claude/plugins/cache/claude-plugins-official/superpowers/6.0.3/skills/requesting-code-review/**)",
+      "Skill(code-review)",
+      "Skill(code-review:*)",
+      "Read(//home/analista_ti/.claude/**)",
+      "Bash(git -C /home/analista_ti/sty/arthas diff HEAD)",
+      "Bash(git -C /home/analista_ti/sty/arthas diff)",
+      "Bash(git -C /home/analista_ti/sty/arthas log --oneline -10)",
+      "Bash(git -C /home/analista_ti/sty/arthas diff HEAD~1 HEAD -- thrall/)",
+      "Bash(git -C /home/analista_ti/sty/arthas show --stat HEAD~1 HEAD)",
+      "Bash(git merge *)"
     ],
     "additionalDirectories": [
       "/home/analista_ti/sty/arthas/.superpowers/sdd"

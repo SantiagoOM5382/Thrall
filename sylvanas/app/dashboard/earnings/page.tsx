@@ -6,7 +6,8 @@ import {
   dayEndBogotaMs,
 } from "@/lib/utils"
 import { DateRangePicker } from "@/components/shared/date-range-picker"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { StatCard } from "@/components/shared/stat-card"
+import { CalendarCheck2, Coins, Building2, Wallet } from "lucide-react"
 
 export const dynamic = "force-dynamic"
 
@@ -37,12 +38,31 @@ export default async function EarningsPage({
   )
 
   const cards = [
-    { label: "Servicios", value: report.totalServices.toString() },
-    { label: "Total base", value: formatCOP(report.totalBase) },
-    { label: "Ganancia empresa (40%)", value: formatCOP(report.companyEarnings) },
     {
-      label: "Ganancia modelos (60% + extras)",
+      label: "Servicios",
+      value: report.totalServices.toString(),
+      icon: CalendarCheck2,
+      tone: "muted" as const,
+    },
+    {
+      label: "Total base",
+      value: formatCOP(report.totalBase),
+      icon: Coins,
+      tone: "neutral" as const,
+    },
+    {
+      label: "Ganancia empresa",
+      value: formatCOP(report.companyEarnings),
+      icon: Building2,
+      tone: "gold" as const,
+      hint: "40% de la base",
+    },
+    {
+      label: "Ganancia modelos",
       value: formatCOP(report.modelTotalEarnings),
+      icon: Wallet,
+      tone: "positive" as const,
+      hint: "60% + extras",
     },
   ]
 
@@ -53,16 +73,14 @@ export default async function EarningsPage({
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {cards.map((c) => (
-          <Card key={c.label}>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-normal text-muted-foreground">
-                {c.label}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-2xl font-semibold">{c.value}</p>
-            </CardContent>
-          </Card>
+          <StatCard
+            key={c.label}
+            label={c.label}
+            value={c.value}
+            icon={c.icon}
+            tone={c.tone}
+            hint={c.hint}
+          />
         ))}
       </div>
 

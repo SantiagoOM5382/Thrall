@@ -65068,7 +65068,7 @@ var users = sqliteTable("users", {
   name: text("name").notNull(),
   email: text("email").notNull(),
   password: text("password").notNull(),
-  role: text("role", { enum: ["admin", "monitor", "model"] }).notNull(),
+  role: text("role", { enum: ["admin", "monitor", "model", "dev"] }).notNull(),
   phone: text("phone"),
   telegram: text("telegram"),
   description: text("description"),
@@ -68528,12 +68528,13 @@ async function logAudit(db2, params) {
 
 // src/routes/users.ts
 var usersRoutes = new Hono2();
-usersRoutes.use("*", authMiddleware, requireRole("admin"));
+usersRoutes.use("*", authMiddleware, requireRole("admin", "dev"));
 var createSchema = external_exports.object({
   name: external_exports.string().min(1),
   email: external_exports.string().email(),
   password: external_exports.string().min(6),
-  role: external_exports.enum(["admin", "monitor", "model"]),
+  role: external_exports.enum(["admin", "monitor", "model", "dev"]),
+  brandId: external_exports.string().optional(),
   phone: external_exports.string().optional(),
   telegram: external_exports.string().optional(),
   description: external_exports.string().optional()
@@ -68547,21 +68548,32 @@ function omitPassword(u) {
 }
 usersRoutes.get("/", async (c) => {
   const caller = c.get("user");
+  const brandFilter = c.req.query("brandId");
   const all = await db.query.users.findMany({
-    where: (u, { and: and3, eq: eqFn, isNull: isNull4 }) => and3(eqFn(u.brandId, caller.brandId), isNull4(u.deletedAt))
+    where: (u, { and: and3, eq: eqFn, isNull: isNull4 }) => {
+      const conds = [isNull4(u.deletedAt)];
+      if (caller.role === "dev") {
+        if (brandFilter) conds.push(eqFn(u.brandId, brandFilter));
+      } else {
+        conds.push(eqFn(u.brandId, caller.brandId));
+      }
+      return and3(...conds);
+    }
   });
   return c.json(all.map(omitPassword));
 });
 usersRoutes.post("/", zValidator("json", createSchema), async (c) => {
   const data = c.req.valid("json");
   const caller = c.get("user");
+  const targetBrandId = caller.role === "dev" ? data.brandId : caller.brandId;
+  if (!targetBrandId) return c.json({ error: "brandId is required" }, 400);
   const id = newId();
   const now = Date.now();
+  const { brandId: _ignored, ...rest } = data;
   await db.insert(users).values({
     id,
-    ...data,
-    brandId: caller.brandId,
-    // scoped to the admin's own brand, never client-chosen
+    ...rest,
+    brandId: targetBrandId,
     password: await hashPassword(data.password),
     isActive: 1,
     createdAt: now,
@@ -70507,6 +70519,40 @@ reportsRoutes.get("/model-balance/:id", requireRole("admin"), async (c) => {
     totalPayments
   });
 });
+reportsRoutes.get("/brand-earnings", requireRole("dev"), async (c) => {
+  const from = Number(c.req.query("from") ?? 0);
+  const to = Number(c.req.query("to") ?? Date.now());
+  const allBrands = await db.query.brands.findMany({ orderBy: (b, { asc: asc2 }) => [asc2(b.name)] });
+  const models = await db.query.users.findMany({ where: (u, { eq: eqFn }) => eqFn(u.role, "model") });
+  const modelBrand = new Map(models.map((m) => [m.id, m.brandId]));
+  const svcs = await db.query.services.findMany({
+    where: (s, { and: and3, between: between3, isNull: isNull4 }) => and3(between3(s.startTime, from, to), isNull4(s.deletedAt))
+  });
+  const acc = /* @__PURE__ */ new Map();
+  for (const b of allBrands) acc.set(b.id, { totalServices: 0, totalBase: 0, companyEarnings: 0, modelTotalEarnings: 0 });
+  for (const s of svcs) {
+    const brandId = modelBrand.get(s.modelId);
+    if (!brandId || !acc.has(brandId)) continue;
+    const extras = await db.query.serviceExtras.findMany({ where: eq(serviceExtras.serviceId, s.id) });
+    const e = calcEarnings(s.basePrice, extras.map((x) => x.amount));
+    const a = acc.get(brandId);
+    a.totalServices += 1;
+    a.totalBase += s.basePrice;
+    a.companyEarnings += e.company;
+    a.modelTotalEarnings += e.modelTotal;
+  }
+  const rows = allBrands.map((b) => ({ brandId: b.id, brandName: b.name, ...acc.get(b.id) }));
+  const totals = rows.reduce(
+    (t, r) => ({
+      totalServices: t.totalServices + r.totalServices,
+      totalBase: t.totalBase + r.totalBase,
+      companyEarnings: t.companyEarnings + r.companyEarnings,
+      modelTotalEarnings: t.modelTotalEarnings + r.modelTotalEarnings
+    }),
+    { totalServices: 0, totalBase: 0, companyEarnings: 0, modelTotalEarnings: 0 }
+  );
+  return c.json({ rows, totals });
+});
 reportsRoutes.get("/daily", requireRole("admin", "monitor"), async (c) => {
   const { start, end } = getTodayRangeInBogota();
   const todayServices = await db.query.services.findMany({
@@ -70725,6 +70771,44 @@ paymentsRoutes.post("/", zValidator("json", createSchema5), async (c) => {
   return c.json(created, 201);
 });
 
+// src/routes/brands.ts
+var brandsRoutes = new Hono2();
+brandsRoutes.use("*", authMiddleware, requireRole("dev"));
+var createSchema6 = external_exports.object({ name: external_exports.string().min(1) });
+var updateSchema2 = external_exports.object({ name: external_exports.string().min(1).optional(), isActive: external_exports.number().int().optional() });
+brandsRoutes.get("/", async (c) => {
+  const all = await db.query.brands.findMany({ orderBy: (b, { desc: desc2 }) => [desc2(b.createdAt)] });
+  return c.json(all);
+});
+brandsRoutes.post("/", zValidator("json", createSchema6), async (c) => {
+  const caller = c.get("user");
+  const { name } = c.req.valid("json");
+  const id = newId();
+  const now = Date.now();
+  await db.insert(brands).values({ id, name, isActive: 1, createdAt: now, updatedAt: now });
+  await db.insert(brandSubscriptions).values({
+    id: newId(),
+    brandId: id,
+    plan: "pilot",
+    isActive: 1,
+    createdAt: now,
+    updatedAt: now
+  });
+  await logAudit(db, { userId: caller.sub, action: "CREATE", entity: "brand", entityId: id });
+  const created = await db.query.brands.findFirst({ where: eq(brands.id, id) });
+  return c.json(created, 201);
+});
+brandsRoutes.put("/:id", zValidator("json", updateSchema2), async (c) => {
+  const caller = c.get("user");
+  const id = c.req.param("id");
+  const existing = await db.query.brands.findFirst({ where: eq(brands.id, id) });
+  if (!existing) return c.json({ error: "Not found" }, 404);
+  await db.update(brands).set({ ...c.req.valid("json"), updatedAt: Date.now() }).where(eq(brands.id, id));
+  await logAudit(db, { userId: caller.sub, action: "UPDATE", entity: "brand", entityId: id });
+  const updated = await db.query.brands.findFirst({ where: eq(brands.id, id) });
+  return c.json(updated);
+});
+
 // src/app.ts
 var app = new Hono2().basePath("/api");
 app.use("*", cors({
@@ -70742,6 +70826,7 @@ app.route("/reports", reportsRoutes);
 app.route("/fines", finesRoutes);
 app.route("/loans", loansRoutes);
 app.route("/payments", paymentsRoutes);
+app.route("/brands", brandsRoutes);
 app.get("/health", (c) => c.json({ ok: true }));
 var app_default = app;
 

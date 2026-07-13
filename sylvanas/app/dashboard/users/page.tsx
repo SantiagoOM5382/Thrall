@@ -22,6 +22,7 @@ const ROLE_LABEL: Record<Role, string> = {
   admin: "Administrador",
   monitor: "Monitor",
   model: "Modelo",
+  dev: "Dev",
 }
 
 const FILTERS: { key: string; label: string }[] = [

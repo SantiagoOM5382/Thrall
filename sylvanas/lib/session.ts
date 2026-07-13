@@ -3,7 +3,7 @@ import { jwtVerify } from "jose"
 
 export interface SessionUser {
   sub: string
-  role: "admin" | "monitor" | "model"
+  role: "admin" | "monitor" | "model" | "dev"
   brandId: string
   name: string
 }

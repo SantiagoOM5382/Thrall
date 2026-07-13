@@ -1,4 +1,4 @@
-export type Role = "admin" | "monitor" | "model"
+export type Role = "admin" | "monitor" | "model" | "dev"
 
 export interface ModelImage {
   id: string

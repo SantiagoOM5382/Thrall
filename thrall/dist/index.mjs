@@ -68234,67 +68234,6 @@ async function verifyToken(token) {
   return payload;
 }
 
-// src/middleware/auth.ts
-async function authMiddleware(c, next) {
-  const header = c.req.header("Authorization");
-  if (!header?.startsWith("Bearer ")) {
-    return c.json({ error: "Unauthorized" }, 401);
-  }
-  const token = header.slice(7);
-  try {
-    const payload = await verifyToken(token);
-    c.set("user", payload);
-    await next();
-  } catch {
-    return c.json({ error: "Invalid or expired token" }, 401);
-  }
-}
-
-// src/routes/auth.ts
-var authRoutes = new Hono2();
-var loginSchema = external_exports.object({
-  email: external_exports.string().email(),
-  password: external_exports.string().min(1)
-});
-authRoutes.post("/login", zValidator("json", loginSchema), async (c) => {
-  const { email: email3, password } = c.req.valid("json");
-  const user = await db.query.users.findFirst({
-    where: eq(users.email, email3)
-  });
-  if (!user || user.isActive === 0 || user.deletedAt !== null) {
-    return c.json({ error: "Invalid credentials" }, 401);
-  }
-  const valid = await comparePassword(password, user.password);
-  if (!valid) {
-    return c.json({ error: "Invalid credentials" }, 401);
-  }
-  const token = await signToken({
-    sub: user.id,
-    role: user.role,
-    brandId: user.brandId,
-    name: user.name
-  });
-  return c.json({
-    token,
-    user: { id: user.id, name: user.name, role: user.role, brandId: user.brandId }
-  });
-});
-authRoutes.get("/me", authMiddleware, (c) => {
-  const user = c.get("user");
-  return c.json({ id: user.sub, name: user.name, role: user.role, brandId: user.brandId });
-});
-
-// src/middleware/rbac.ts
-function requireRole(...roles) {
-  return async (c, next) => {
-    const user = c.get("user");
-    if (!roles.includes(user.role)) {
-      return c.json({ error: "Forbidden" }, 403);
-    }
-    await next();
-  };
-}
-
 // node_modules/ulidx/dist/node/index.js
 import crypto2 from "crypto";
 
@@ -68515,6 +68454,122 @@ function ulid3(seedTime, prng) {
 // src/lib/ulid.ts
 function newId() {
   return ulid3();
+}
+
+// src/middleware/auth.ts
+async function authMiddleware(c, next) {
+  const header = c.req.header("Authorization");
+  if (!header?.startsWith("Bearer ")) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+  const token = header.slice(7);
+  try {
+    const payload = await verifyToken(token);
+    c.set("user", payload);
+    await next();
+  } catch {
+    return c.json({ error: "Invalid or expired token" }, 401);
+  }
+}
+
+// src/routes/auth.ts
+var authRoutes = new Hono2();
+var loginSchema = external_exports.object({
+  email: external_exports.string().email(),
+  password: external_exports.string().min(1)
+});
+authRoutes.post("/login", zValidator("json", loginSchema), async (c) => {
+  const { email: email3, password } = c.req.valid("json");
+  const user = await db.query.users.findFirst({
+    where: eq(users.email, email3)
+  });
+  if (!user || user.isActive === 0 || user.deletedAt !== null) {
+    return c.json({ error: "Invalid credentials" }, 401);
+  }
+  const valid = await comparePassword(password, user.password);
+  if (!valid) {
+    return c.json({ error: "Invalid credentials" }, 401);
+  }
+  const token = await signToken({
+    sub: user.id,
+    role: user.role,
+    brandId: user.brandId,
+    name: user.name
+  });
+  return c.json({
+    token,
+    user: { id: user.id, name: user.name, role: user.role, brandId: user.brandId }
+  });
+});
+authRoutes.get("/me", authMiddleware, (c) => {
+  const user = c.get("user");
+  return c.json({ id: user.sub, name: user.name, role: user.role, brandId: user.brandId });
+});
+var signupSchema = external_exports.object({
+  brandName: external_exports.string().trim().min(1).max(80),
+  adminName: external_exports.string().trim().min(1).max(80),
+  email: external_exports.string().trim().toLowerCase().email(),
+  password: external_exports.string().min(8)
+});
+var TRIAL_DAYS = 10;
+authRoutes.post("/signup", zValidator("json", signupSchema), async (c) => {
+  const data = c.req.valid("json");
+  const emailTaken = await db.query.users.findFirst({ where: eq(users.email, data.email) });
+  if (emailTaken) return c.json({ error: "email_in_use" }, 409);
+  const nameTaken = await db.query.brands.findFirst({
+    where: sql`lower(${brands.name}) = lower(${data.brandName})`
+  });
+  if (nameTaken) return c.json({ error: "brand_name_in_use" }, 409);
+  const now = Date.now();
+  const brandId = newId();
+  const userId = newId();
+  const subId = newId();
+  const trialEndsAt = now + TRIAL_DAYS * 86400 * 1e3;
+  await db.insert(brands).values({
+    id: brandId,
+    name: data.brandName,
+    isActive: 1,
+    createdAt: now,
+    updatedAt: now
+  });
+  await db.insert(brandSubscriptions).values({
+    id: subId,
+    brandId,
+    tier: "free",
+    status: "trial",
+    trialEndsAt,
+    paidUntil: null,
+    isGrandfathered: 0,
+    createdAt: now,
+    updatedAt: now
+  });
+  await db.insert(users).values({
+    id: userId,
+    brandId,
+    name: data.adminName,
+    email: data.email,
+    password: await hashPassword(data.password),
+    role: "admin",
+    isActive: 1,
+    createdAt: now,
+    updatedAt: now
+  });
+  const token = await signToken({ sub: userId, role: "admin", brandId, name: data.adminName });
+  return c.json({
+    token,
+    user: { id: userId, name: data.adminName, role: "admin", brandId }
+  });
+});
+
+// src/middleware/rbac.ts
+function requireRole(...roles) {
+  return async (c, next) => {
+    const user = c.get("user");
+    if (!roles.includes(user.role)) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
+    await next();
+  };
 }
 
 // src/lib/audit.ts

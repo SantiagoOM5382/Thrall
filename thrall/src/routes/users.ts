@@ -60,6 +60,14 @@ usersRoutes.post('/', zValidator('json', createSchema), async (c) => {
     return c.json({ error: 'Forbidden' }, 403)
   }
 
+  if (caller.role !== 'dev' && (data.role === 'admin' || data.role === 'monitor')) {
+    const { loadBrandAccess } = await import('../middleware/requirePaid')
+    const access = await loadBrandAccess(caller.brandId)
+    if (!access.isPaidEffective) {
+      return c.json({ error: 'subscription_required', reason: (access as any).reason }, 403)
+    }
+  }
+
   const targetBrandId = caller.role === 'dev' ? data.brandId : caller.brandId
   if (!targetBrandId) return c.json({ error: 'brandId is required' }, 400)
 

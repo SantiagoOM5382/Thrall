@@ -84,12 +84,16 @@ export const auditLogs = sqliteTable('audit_logs', {
 export const brandSubscriptions = sqliteTable('brand_subscriptions', {
   id: text('id').primaryKey(),
   brandId: text('brand_id').notNull().references(() => brands.id),
-  plan: text('plan').notNull().default('pilot'),
-  isActive: integer('is_active').notNull().default(1),
+  tier: text('tier', { enum: ['free', 'paid'] }).notNull().default('free'),
+  status: text('status', { enum: ['active', 'trial', 'expired'] }).notNull().default('trial'),
+  trialEndsAt: integer('trial_ends_at'),
   paidUntil: integer('paid_until'),
+  isGrandfathered: integer('is_grandfathered').notNull().default(0),
   createdAt: integer('created_at').notNull(),
   updatedAt: integer('updated_at').notNull(),
-})
+}, (t) => ({
+  brandIdx: uniqueIndex('brand_subscriptions_brand_idx').on(t.brandId),
+}))
 
 export const fines = sqliteTable('fines', {
   id: text('id').primaryKey(),

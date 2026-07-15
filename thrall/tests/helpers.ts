@@ -4,20 +4,26 @@ import { newId } from '../src/lib/ulid'
 import { hashPassword } from '../src/lib/hash'
 import { signToken } from '../src/lib/jwt'
 
-export async function createTestBrand() {
+export async function createTestBrand(opts: {
+  tier?: 'free' | 'paid'
+  status?: 'active' | 'trial' | 'expired'
+  trialEndsAt?: number | null
+  paidUntil?: number | null
+  isGrandfathered?: 0 | 1
+} = {}) {
   const id = newId()
   await db.insert(brands).values({
-    id,
-    name: 'Test Brand',
-    isActive: 1,
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
+    id, name: 'Test Brand', isActive: 1,
+    createdAt: Date.now(), updatedAt: Date.now(),
   })
   await db.insert(brandSubscriptions).values({
     id: newId(),
     brandId: id,
-    plan: 'pilot',
-    isActive: 1,
+    tier: opts.tier ?? 'paid',
+    status: opts.status ?? 'active',
+    trialEndsAt: opts.trialEndsAt ?? null,
+    paidUntil: opts.paidUntil ?? null,
+    isGrandfathered: opts.isGrandfathered ?? 1,
     createdAt: Date.now(),
     updatedAt: Date.now(),
   })

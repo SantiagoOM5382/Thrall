@@ -19,8 +19,9 @@ async function seed() {
   await db.insert(brandSubscriptions).values({
     id: newId(),
     brandId,
-    plan: 'pilot',
-    isActive: 1,
+    tier: 'paid',
+    status: 'active',
+    isGrandfathered: 1,
     createdAt: Date.now(),
     updatedAt: Date.now(),
   })

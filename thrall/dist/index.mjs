@@ -65132,12 +65132,16 @@ var auditLogs = sqliteTable("audit_logs", {
 var brandSubscriptions = sqliteTable("brand_subscriptions", {
   id: text("id").primaryKey(),
   brandId: text("brand_id").notNull().references(() => brands.id),
-  plan: text("plan").notNull().default("pilot"),
-  isActive: integer2("is_active").notNull().default(1),
+  tier: text("tier", { enum: ["free", "paid"] }).notNull().default("free"),
+  status: text("status", { enum: ["active", "trial", "expired"] }).notNull().default("trial"),
+  trialEndsAt: integer2("trial_ends_at"),
   paidUntil: integer2("paid_until"),
+  isGrandfathered: integer2("is_grandfathered").notNull().default(0),
   createdAt: integer2("created_at").notNull(),
   updatedAt: integer2("updated_at").notNull()
-});
+}, (t) => ({
+  brandIdx: uniqueIndex("brand_subscriptions_brand_idx").on(t.brandId)
+}));
 var fines = sqliteTable("fines", {
   id: text("id").primaryKey(),
   modelId: text("model_id").notNull().references(() => users.id),

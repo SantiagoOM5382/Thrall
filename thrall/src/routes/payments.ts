@@ -5,12 +5,13 @@ import { eq } from 'drizzle-orm'
 import { db } from '../db/client'
 import { payments } from '../db/schema'
 import { authMiddleware, type AppEnv } from '../middleware/auth'
+import { requirePaid } from '../middleware/requirePaid'
 import { requireRole } from '../middleware/rbac'
 import { newId } from '../lib/ulid'
 import { logAudit } from '../lib/audit'
 
 export const paymentsRoutes = new Hono<AppEnv>()
-paymentsRoutes.use('*', authMiddleware, requireRole('admin'))
+paymentsRoutes.use('*', authMiddleware, requirePaid, requireRole('admin'))
 
 const createSchema = z.object({
   modelId: z.string(),

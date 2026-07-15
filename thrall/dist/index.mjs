@@ -70250,6 +70250,41 @@ imagesRoutes.delete("/:id", async (c) => {
   return c.json({ ok: true });
 });
 
+// src/middleware/requirePaid.ts
+function computeEffectiveAccess(sub, now = Date.now()) {
+  if (!sub) return { isPaidEffective: false, reason: "no_subscription" };
+  if (sub.isGrandfathered === 1) return { isPaidEffective: true };
+  if (sub.status === "trial" && sub.trialEndsAt && sub.trialEndsAt > now) return { isPaidEffective: true };
+  if (sub.tier === "paid" && sub.status === "active" && sub.paidUntil && sub.paidUntil > now) {
+    return { isPaidEffective: true };
+  }
+  if (sub.status === "trial" && sub.trialEndsAt && sub.trialEndsAt <= now) {
+    return { isPaidEffective: false, reason: "trial_expired" };
+  }
+  if (sub.tier === "paid" && sub.paidUntil && sub.paidUntil <= now) {
+    return { isPaidEffective: false, reason: "paid_expired" };
+  }
+  return { isPaidEffective: false, reason: "free" };
+}
+async function loadBrandAccess(brandId) {
+  const sub = await db.query.brandSubscriptions.findFirst({
+    where: eq(brandSubscriptions.brandId, brandId)
+  });
+  const now = Date.now();
+  const result = computeEffectiveAccess(sub, now);
+  if (!result.isPaidEffective && sub && sub.status !== "expired" && (result.reason === "trial_expired" || result.reason === "paid_expired")) {
+    await db.update(brandSubscriptions).set({ status: "expired", updatedAt: now }).where(eq(brandSubscriptions.id, sub.id));
+  }
+  return { ...result, sub };
+}
+async function requirePaid(c, next) {
+  const user = c.get("user");
+  if (user.role === "dev") return next();
+  const access = await loadBrandAccess(user.brandId);
+  if (access.isPaidEffective) return next();
+  return c.json({ error: "subscription_required", reason: access.reason }, 403);
+}
+
 // src/serializers/pay-method.ts
 function serializePayMethod(pm, role) {
   if (role === "admin") {
@@ -70260,7 +70295,7 @@ function serializePayMethod(pm, role) {
 
 // src/routes/pay-methods.ts
 var payMethodsRoutes = new Hono2();
-payMethodsRoutes.use("*", authMiddleware);
+payMethodsRoutes.use("*", authMiddleware, requirePaid);
 var bodySchema = external_exports.object({
   code: external_exports.string().min(1).toUpperCase(),
   displayName: external_exports.string().min(1)
@@ -70321,7 +70356,7 @@ function getTodayRangeInBogota() {
 
 // src/routes/services.ts
 var servicesRoutes = new Hono2();
-servicesRoutes.use("*", authMiddleware);
+servicesRoutes.use("*", authMiddleware, requirePaid);
 var serviceBaseSchema = external_exports.object({
   modelId: external_exports.string(),
   startTime: external_exports.number().int(),
@@ -70464,7 +70499,7 @@ function calcEarnings(basePrice, extraAmounts) {
 
 // src/routes/reports.ts
 var reportsRoutes = new Hono2();
-reportsRoutes.use("*", authMiddleware);
+reportsRoutes.use("*", authMiddleware, requirePaid);
 reportsRoutes.get("/ranking", requireRole("admin", "monitor"), async (c) => {
   const all = await db.query.services.findMany({
     where: (s, { isNull: isNull4 }) => isNull4(s.deletedAt)
@@ -70649,7 +70684,7 @@ reportsRoutes.get("/daily", requireRole("admin", "monitor"), async (c) => {
 
 // src/routes/fines.ts
 var finesRoutes = new Hono2();
-finesRoutes.use("*", authMiddleware);
+finesRoutes.use("*", authMiddleware, requirePaid);
 var createSchema3 = external_exports.object({
   modelId: external_exports.string(),
   amount: external_exports.number().int().positive(),
@@ -70726,7 +70761,7 @@ finesRoutes.delete("/:id", requireRole("admin"), async (c) => {
 
 // src/routes/loans.ts
 var loansRoutes = new Hono2();
-loansRoutes.use("*", authMiddleware);
+loansRoutes.use("*", authMiddleware, requirePaid);
 var createSchema4 = external_exports.object({
   modelId: external_exports.string(),
   amount: external_exports.number().int().positive(),
@@ -70803,7 +70838,7 @@ loansRoutes.delete("/:id", requireRole("admin", "monitor"), async (c) => {
 
 // src/routes/payments.ts
 var paymentsRoutes = new Hono2();
-paymentsRoutes.use("*", authMiddleware, requireRole("admin"));
+paymentsRoutes.use("*", authMiddleware, requirePaid, requireRole("admin"));
 var createSchema5 = external_exports.object({
   modelId: external_exports.string(),
   amount: external_exports.number().int().positive(),

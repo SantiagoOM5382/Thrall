@@ -3,12 +3,13 @@ import { eq, and, between, isNull } from 'drizzle-orm'
 import { db } from '../db/client'
 import { services, serviceExtras, users, fines, loans, payments, brands } from '../db/schema'
 import { authMiddleware, type AppEnv } from '../middleware/auth'
+import { requirePaid } from '../middleware/requirePaid'
 import { requireRole } from '../middleware/rbac'
 import { calcEarnings } from '../lib/earnings'
 import { getTodayRangeInBogota } from '../lib/timezone'
 
 export const reportsRoutes = new Hono<AppEnv>()
-reportsRoutes.use('*', authMiddleware)
+reportsRoutes.use('*', authMiddleware, requirePaid)
 
 reportsRoutes.get('/ranking', requireRole('admin', 'monitor'), async (c) => {
   const all = await db.query.services.findMany({

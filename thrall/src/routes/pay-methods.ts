@@ -5,13 +5,14 @@ import { eq } from 'drizzle-orm'
 import { db } from '../db/client'
 import { payMethods } from '../db/schema'
 import { authMiddleware, type AppEnv } from '../middleware/auth'
+import { requirePaid } from '../middleware/requirePaid'
 import { requireRole } from '../middleware/rbac'
 import { newId } from '../lib/ulid'
 import { logAudit } from '../lib/audit'
 import { serializePayMethod } from '../serializers/pay-method'
 
 export const payMethodsRoutes = new Hono<AppEnv>()
-payMethodsRoutes.use('*', authMiddleware)
+payMethodsRoutes.use('*', authMiddleware, requirePaid)
 
 const bodySchema = z.object({
   code: z.string().min(1).toUpperCase(),

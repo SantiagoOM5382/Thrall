@@ -5,12 +5,13 @@ import { eq } from 'drizzle-orm'
 import { db } from '../db/client'
 import { services, serviceExtras } from '../db/schema'
 import { authMiddleware, type AppEnv } from '../middleware/auth'
+import { requirePaid } from '../middleware/requirePaid'
 import { newId } from '../lib/ulid'
 import { logAudit } from '../lib/audit'
 import { getTodayRangeInBogota } from '../lib/timezone'
 
 export const servicesRoutes = new Hono<AppEnv>()
-servicesRoutes.use('*', authMiddleware)
+servicesRoutes.use('*', authMiddleware, requirePaid)
 
 const serviceBaseSchema = z.object({
   modelId: z.string(),

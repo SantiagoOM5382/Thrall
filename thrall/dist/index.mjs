@@ -70912,6 +70912,40 @@ brandsRoutes.put("/:id", zValidator("json", updateSchema2), async (c) => {
   return c.json(updated);
 });
 
+// src/routes/brand.ts
+var brandRoutes = new Hono2();
+brandRoutes.use("*", authMiddleware);
+brandRoutes.get("/subscription", async (c) => {
+  const user = c.get("user");
+  const { sub, isPaidEffective } = await loadBrandAccess(user.brandId);
+  if (!sub) {
+    return c.json({
+      tier: "free",
+      status: "expired",
+      trialEndsAt: null,
+      paidUntil: null,
+      isGrandfathered: false,
+      isPaidEffective: false,
+      daysLeft: null
+    });
+  }
+  const now = Date.now();
+  const activeAt = sub.status === "trial" ? sub.trialEndsAt : sub.tier === "paid" ? sub.paidUntil : null;
+  const daysLeft = activeAt && activeAt > now ? Math.ceil((activeAt - now) / (86400 * 1e3)) : null;
+  return c.json({
+    tier: sub.tier,
+    status: sub.status,
+    trialEndsAt: sub.trialEndsAt,
+    paidUntil: sub.paidUntil,
+    isGrandfathered: sub.isGrandfathered === 1,
+    isPaidEffective,
+    daysLeft
+  });
+});
+brandRoutes.post("/subscribe", async (c) => {
+  return c.json({ error: "not_implemented" }, 501);
+});
+
 // src/app.ts
 var app = new Hono2().basePath("/api");
 app.use("*", cors({
@@ -70930,6 +70964,7 @@ app.route("/fines", finesRoutes);
 app.route("/loans", loansRoutes);
 app.route("/payments", paymentsRoutes);
 app.route("/brands", brandsRoutes);
+app.route("/brand", brandRoutes);
 app.get("/health", (c) => c.json({ ok: true }));
 var app_default = app;
 

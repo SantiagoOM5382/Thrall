@@ -115,6 +115,30 @@ usersRoutes.put('/:id', zValidator('json', updateSchema), async (c) => {
   if (!existing) return c.json({ error: 'Not found' }, 404)
 
   const data = c.req.valid('json')
+
+  if (caller.role !== 'dev') {
+    if (existing.brandId !== caller.brandId) {
+      return c.json({ error: 'Forbidden' }, 403)
+    }
+
+    // Only a dev may set a user's role to dev; an admin doing so would
+    // escalate to a cross-brand superuser, bypassing tenant isolation.
+    if (data.role === 'dev' && existing.role !== 'dev') {
+      return c.json({ error: 'Forbidden' }, 403)
+    }
+
+    if (
+      (data.role === 'admin' || data.role === 'monitor') &&
+      data.role !== existing.role
+    ) {
+      const { loadBrandAccess } = await import('../middleware/requirePaid')
+      const access = await loadBrandAccess(caller.brandId)
+      if (!access.isPaidEffective) {
+        return c.json({ error: 'subscription_required', reason: (access as any).reason }, 403)
+      }
+    }
+  }
+
   const now = Date.now()
   const patch: Record<string, unknown> = { ...data, updatedAt: now }
   if (data.password) patch.password = await hashPassword(data.password)

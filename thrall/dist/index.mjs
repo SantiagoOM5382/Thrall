@@ -69610,6 +69610,21 @@ usersRoutes.put("/:id", zValidator("json", updateSchema), async (c) => {
   });
   if (!existing) return c.json({ error: "Not found" }, 404);
   const data = c.req.valid("json");
+  if (caller.role !== "dev") {
+    if (existing.brandId !== caller.brandId) {
+      return c.json({ error: "Forbidden" }, 403);
+    }
+    if (data.role === "dev" && existing.role !== "dev") {
+      return c.json({ error: "Forbidden" }, 403);
+    }
+    if ((data.role === "admin" || data.role === "monitor") && data.role !== existing.role) {
+      const { loadBrandAccess: loadBrandAccess2 } = await Promise.resolve().then(() => (init_requirePaid(), requirePaid_exports));
+      const access = await loadBrandAccess2(caller.brandId);
+      if (!access.isPaidEffective) {
+        return c.json({ error: "subscription_required", reason: access.reason }, 403);
+      }
+    }
+  }
   const now = Date.now();
   const patch = { ...data, updatedAt: now };
   if (data.password) patch.password = await hashPassword(data.password);

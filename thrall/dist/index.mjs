@@ -71965,6 +71965,25 @@ brandRoutes.post("/subscribe", async (c) => {
   return c.json({ error: "not_implemented" }, 501);
 });
 
+// src/routes/products.ts
+init_drizzle_orm();
+init_client();
+init_schema();
+var productsRoutes = new Hono2();
+productsRoutes.get("/", async (c) => {
+  const type = c.req.query("type") ?? "SUBSCRIPTION";
+  const rows = await db.select({
+    id: products.id,
+    code: products.code,
+    type: products.type,
+    displayName: products.displayName,
+    priceCop: products.priceCop,
+    durationDays: products.durationDays,
+    tokensGranted: products.tokensGranted
+  }).from(products).where(and(eq(products.type, type), eq(products.isActive, 1)));
+  return c.json(rows);
+});
+
 // src/app.ts
 var app = new Hono2().basePath("/api");
 app.use("*", cors({
@@ -71984,6 +72003,7 @@ app.route("/loans", loansRoutes);
 app.route("/payments", paymentsRoutes);
 app.route("/brands", brandsRoutes);
 app.route("/brand", brandRoutes);
+app.route("/products", productsRoutes);
 app.get("/health", (c) => c.json({ ok: true }));
 var app_default = app;
 

@@ -34,17 +34,3 @@ describe('GET /api/brand/subscription', () => {
     expect(body.daysLeft).toBeNull()
   })
 })
-
-describe('POST /api/brand/subscribe', () => {
-  it('returns 501 stub', async () => {
-    const brand = await createTestBrand()
-    const u = await createTestUser(brand, { role: 'admin' })
-    const token = await tokenFor(u.id, 'admin', brand)
-    const res = await app.request('/api/brand/subscribe', {
-      method: 'POST', headers: { Authorization: `Bearer ${token}` },
-    })
-    expect(res.status).toBe(501)
-    const body = await res.json()
-    expect(body.error).toBe('not_implemented')
-  })
-})

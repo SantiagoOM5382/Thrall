@@ -1,4 +1,5 @@
 import { apiFetch } from "@/lib/api"
+import { PaidGate } from "@/components/shared/PaidGate"
 import type { PayMethod } from "@/lib/types"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -18,6 +19,7 @@ export default async function PayMethodsPage() {
   const methods = await apiFetch<PayMethod[]>("/pay-methods")
 
   return (
+    <PaidGate>
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold tracking-tight">
@@ -71,5 +73,6 @@ export default async function PayMethodsPage() {
         </div>
       )}
     </div>
+    </PaidGate>
   )
 }

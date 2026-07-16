@@ -1,4 +1,5 @@
 import { apiFetch } from "@/lib/api"
+import { PaidGate } from "@/components/shared/PaidGate"
 import { formatCOP, cn } from "@/lib/utils"
 import {
   Table,
@@ -44,6 +45,7 @@ export default async function RankingPage() {
   const ranking = await apiFetch<RankingRow[]>("/reports/ranking")
 
   return (
+    <PaidGate>
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold tracking-tight">Ranking</h1>
 
@@ -85,5 +87,6 @@ export default async function RankingPage() {
         </div>
       )}
     </div>
+    </PaidGate>
   )
 }

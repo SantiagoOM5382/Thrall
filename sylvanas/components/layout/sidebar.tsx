@@ -16,6 +16,7 @@ import {
   type LucideIcon,
 } from "lucide-react"
 import { useSession } from "@/components/session-provider"
+import { useSubscription } from "@/lib/subscription-context"
 import { logout } from "@/lib/auth"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -83,8 +84,20 @@ const ROLE_LABEL: Record<Role, string> = {
 
 const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? "Arthas"
 
+// Gated sections: locked behind a paid subscription. Shown with a 🔒 while
+// on the free tier / expired trial. brand-earnings is dev-only and bypasses
+// gating entirely, so it's intentionally excluded here.
+const GATED = new Set([
+  "/dashboard/services",
+  "/dashboard/pay-methods",
+  "/dashboard/earnings",
+  "/dashboard/model-earnings",
+  "/dashboard/ranking",
+])
+
 export function Sidebar() {
   const user = useSession()
+  const sub = useSubscription()
   const pathname = usePathname()
 
   const groups = GROUPS.map((g) => ({
@@ -122,6 +135,7 @@ export function Sidebar() {
                 pathname === item.href ||
                 pathname.startsWith(`${item.href}/`)
               const Icon = item.icon
+              const locked = GATED.has(item.href) && !sub.isPaidEffective
               return (
                 <Link
                   key={item.href}
@@ -150,6 +164,11 @@ export function Sidebar() {
                     )}
                   />
                   {item.label}
+                  {locked && (
+                    <span className="ml-1 opacity-60" aria-label="Requiere suscripción">
+                      🔒
+                    </span>
+                  )}
                 </Link>
               )
             })}

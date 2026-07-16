@@ -10,6 +10,7 @@ import {
   cn,
 } from "@/lib/utils"
 import { DateRangePicker } from "@/components/shared/date-range-picker"
+import { PaidGate } from "@/components/shared/PaidGate"
 import { ModelSelect } from "./model-select"
 import { PaymentDialog } from "./payment-dialog"
 import { EditableAmount } from "./editable-amount"
@@ -122,6 +123,7 @@ export default async function ModelEarningsPage({
   const dayKeys = [...days.keys()].sort().reverse()
 
   return (
+    <PaidGate>
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold tracking-tight">
         Ganancias por modelo
@@ -248,5 +250,6 @@ export default async function ModelEarningsPage({
         </p>
       )}
     </div>
+    </PaidGate>
   )
 }

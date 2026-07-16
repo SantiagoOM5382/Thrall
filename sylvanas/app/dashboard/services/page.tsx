@@ -26,6 +26,7 @@ import { DeleteMovementButton } from "./delete-movement-button"
 import { DayPicker } from "./day-picker"
 import { EditableBase } from "./editable-base"
 import { getSession } from "@/lib/session"
+import { PaidGate } from "@/components/shared/PaidGate"
 
 export const dynamic = "force-dynamic"
 
@@ -70,6 +71,7 @@ export default async function ServicesPage({
   const payCode = new Map(payMethods.map((p) => [p.id, p.code]))
 
   return (
+    <PaidGate>
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold tracking-tight">
@@ -229,5 +231,6 @@ export default async function ServicesPage({
         </section>
       )}
     </div>
+    </PaidGate>
   )
 }

@@ -7,6 +7,7 @@ import {
 } from "@/lib/utils"
 import { DateRangePicker } from "@/components/shared/date-range-picker"
 import { StatCard } from "@/components/shared/stat-card"
+import { PaidGate } from "@/components/shared/PaidGate"
 import { CalendarCheck2, Coins, Building2, Wallet } from "lucide-react"
 
 export const dynamic = "force-dynamic"
@@ -67,6 +68,7 @@ export default async function EarningsPage({
   ]
 
   return (
+    <PaidGate>
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold tracking-tight">Ganancias empresa</h1>
       <DateRangePicker />
@@ -90,5 +92,6 @@ export default async function EarningsPage({
         </p>
       )}
     </div>
+    </PaidGate>
   )
 }

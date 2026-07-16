@@ -1,20 +1,6 @@
-"use client"
-
-import { useState } from "react"
+import Link from "next/link"
 
 export function UpsellCard({ reason }: { reason: "trial_expired" | "free" }) {
-  const [msg, setMsg] = useState<string | null>(null)
-
-  async function onSubscribe() {
-    const res = await fetch("/api/brand-subscribe", { method: "POST" })
-    const body = await res.json().catch(() => ({}))
-    setMsg(
-      body.error === "not_implemented"
-        ? "Pronto habilitaremos el pago en línea."
-        : "Solicitud recibida."
-    )
-  }
-
   return (
     <div className="mx-auto max-w-xl mt-16 rounded-lg border p-8 text-center">
       <h2 className="text-xl font-semibold mb-2">Esta sección es para suscriptores</h2>
@@ -29,10 +15,9 @@ export function UpsellCard({ reason }: { reason: "trial_expired" | "free" }) {
         <li>Reportes de ganancias</li>
         <li>Monitores y admins adicionales</li>
       </ul>
-      <button onClick={onSubscribe} className="rounded bg-black text-white px-4 py-2">
+      <Link href="/dashboard/subscribe" className="inline-block rounded bg-black text-white px-4 py-2">
         Suscribirse
-      </button>
-      {msg && <p className="text-sm text-neutral-500 mt-3">{msg}</p>}
+      </Link>
     </div>
   )
 }

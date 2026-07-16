@@ -37,5 +37,27 @@ export function TrialBanner() {
     )
   }
 
+  if (s.tier === "paid" && s.status === "active" && s.daysLeft !== null && s.daysLeft > 0 && s.daysLeft <= 5) {
+    return (
+      <div className="flex items-center justify-between gap-4 bg-amber-100 px-4 py-2 text-sm text-amber-900">
+        <span>Tu plan vence en {s.daysLeft} día{s.daysLeft === 1 ? "" : "s"}.</span>
+        <a href="/dashboard/subscribe" className="font-medium underline">
+          Renovar
+        </a>
+      </div>
+    )
+  }
+
+  if (s.tier === "paid" && !s.isPaidEffective) {
+    return (
+      <div className="flex items-center justify-between gap-4 bg-red-100 px-4 py-2 text-sm text-red-900">
+        <span>Tu plan venció. Muchas funciones están bloqueadas.</span>
+        <a href="/dashboard/subscribe" className="font-medium underline">
+          Renovar
+        </a>
+      </div>
+    )
+  }
+
   return null
 }

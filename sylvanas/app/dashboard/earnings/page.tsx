@@ -8,6 +8,8 @@ import {
 import { DateRangePicker } from "@/components/shared/date-range-picker"
 import { StatCard } from "@/components/shared/stat-card"
 import { PaidGate } from "@/components/shared/PaidGate"
+import { getSubscription } from "@/lib/subscription-server"
+import { UpsellCard } from "@/components/shared/UpsellCard"
 import { CalendarCheck2, Coins, Building2, Wallet } from "lucide-react"
 
 export const dynamic = "force-dynamic"
@@ -26,6 +28,11 @@ export default async function EarningsPage({
 }: {
   searchParams: Promise<{ from?: string; to?: string }>
 }) {
+  const sub = await getSubscription()
+  if (!sub.isPaidEffective) {
+    return <UpsellCard reason={sub.status === "expired" ? "trial_expired" : "free"} />
+  }
+
   const sp = await searchParams
   const today = todayBogota()
   const from = sp.from ?? today

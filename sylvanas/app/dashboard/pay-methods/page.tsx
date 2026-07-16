@@ -1,5 +1,7 @@
 import { apiFetch } from "@/lib/api"
 import { PaidGate } from "@/components/shared/PaidGate"
+import { getSubscription } from "@/lib/subscription-server"
+import { UpsellCard } from "@/components/shared/UpsellCard"
 import type { PayMethod } from "@/lib/types"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -16,6 +18,11 @@ import { DeletePayMethodButton } from "./delete-pay-method-button"
 export const dynamic = "force-dynamic"
 
 export default async function PayMethodsPage() {
+  const sub = await getSubscription()
+  if (!sub.isPaidEffective) {
+    return <UpsellCard reason={sub.status === "expired" ? "trial_expired" : "free"} />
+  }
+
   const methods = await apiFetch<PayMethod[]>("/pay-methods")
 
   return (

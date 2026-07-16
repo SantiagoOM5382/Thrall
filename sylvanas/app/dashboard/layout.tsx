@@ -1,12 +1,8 @@
 import { redirect } from "next/navigation"
 import { getSession } from "@/lib/session"
-import { apiFetch } from "@/lib/api"
 import { SessionProvider } from "@/components/session-provider"
-import {
-  SubscriptionProvider,
-  DEFAULT_SUBSCRIPTION_STATE,
-  type SubscriptionState,
-} from "@/lib/subscription-context"
+import { SubscriptionProvider } from "@/lib/subscription-context"
+import { getSubscription } from "@/lib/subscription-server"
 import { Sidebar } from "@/components/layout/sidebar"
 import { TrialBanner } from "@/components/shared/TrialBanner"
 
@@ -18,13 +14,7 @@ export default async function DashboardLayout({
   const user = await getSession()
   if (!user) redirect("/login")
 
-  let subscription: SubscriptionState = DEFAULT_SUBSCRIPTION_STATE
-  try {
-    subscription = await apiFetch<SubscriptionState>("/brand/subscription")
-  } catch {
-    // 401/404/etc — fall back to default state rather than breaking the
-    // dashboard shell; the client can refetch via SubscriptionProvider later.
-  }
+  const subscription = await getSubscription()
 
   return (
     <SessionProvider user={user}>

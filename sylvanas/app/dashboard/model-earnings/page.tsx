@@ -11,6 +11,8 @@ import {
 } from "@/lib/utils"
 import { DateRangePicker } from "@/components/shared/date-range-picker"
 import { PaidGate } from "@/components/shared/PaidGate"
+import { getSubscription } from "@/lib/subscription-server"
+import { UpsellCard } from "@/components/shared/UpsellCard"
 import { ModelSelect } from "./model-select"
 import { PaymentDialog } from "./payment-dialog"
 import { EditableAmount } from "./editable-amount"
@@ -47,6 +49,11 @@ export default async function ModelEarningsPage({
 }: {
   searchParams: Promise<{ modelId?: string; from?: string; to?: string }>
 }) {
+  const sub = await getSubscription()
+  if (!sub.isPaidEffective) {
+    return <UpsellCard reason={sub.status === "expired" ? "trial_expired" : "free"} />
+  }
+
   const sp = await searchParams
   const models = await apiFetch<Model[]>("/models")
 

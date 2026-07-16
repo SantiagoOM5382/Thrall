@@ -27,6 +27,8 @@ import { DayPicker } from "./day-picker"
 import { EditableBase } from "./editable-base"
 import { getSession } from "@/lib/session"
 import { PaidGate } from "@/components/shared/PaidGate"
+import { getSubscription } from "@/lib/subscription-server"
+import { UpsellCard } from "@/components/shared/UpsellCard"
 
 export const dynamic = "force-dynamic"
 
@@ -46,6 +48,11 @@ export default async function ServicesPage({
 }: {
   searchParams: Promise<{ date?: string }>
 }) {
+  const sub = await getSubscription()
+  if (!sub.isPaidEffective) {
+    return <UpsellCard reason={sub.status === "expired" ? "trial_expired" : "free"} />
+  }
+
   const {
     services: allServices,
     models,

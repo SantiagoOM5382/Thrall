@@ -1,5 +1,7 @@
 import { apiFetch } from "@/lib/api"
 import { PaidGate } from "@/components/shared/PaidGate"
+import { getSubscription } from "@/lib/subscription-server"
+import { UpsellCard } from "@/components/shared/UpsellCard"
 import { formatCOP, cn } from "@/lib/utils"
 import {
   Table,
@@ -42,6 +44,11 @@ function RankBadge({ position }: { position: number }) {
 }
 
 export default async function RankingPage() {
+  const sub = await getSubscription()
+  if (!sub.isPaidEffective) {
+    return <UpsellCard reason={sub.status === "expired" ? "trial_expired" : "free"} />
+  }
+
   const ranking = await apiFetch<RankingRow[]>("/reports/ranking")
 
   return (

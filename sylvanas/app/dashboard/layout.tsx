@@ -8,6 +8,7 @@ import {
   type SubscriptionState,
 } from "@/lib/subscription-context"
 import { Sidebar } from "@/components/layout/sidebar"
+import { TrialBanner } from "@/components/shared/TrialBanner"
 
 export default async function DashboardLayout({
   children,
@@ -28,6 +29,7 @@ export default async function DashboardLayout({
   return (
     <SessionProvider user={user}>
       <SubscriptionProvider initial={subscription}>
+        <TrialBanner />
         <div className="flex min-h-screen">
           <Sidebar />
           <main className="flex-1 overflow-auto p-6">{children}</main>

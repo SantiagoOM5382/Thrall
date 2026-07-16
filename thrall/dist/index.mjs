@@ -71957,6 +71957,29 @@ function buildCheckoutUrl(params) {
   u.searchParams.set("signature:integrity", sig);
   return u.toString();
 }
+function resolvePath(obj, path) {
+  return path.split(".").reduce((acc, key) => {
+    if (acc && typeof acc === "object" && key in acc) {
+      return acc[key];
+    }
+    return void 0;
+  }, obj);
+}
+function verifyWebhookSignature(payload, eventsSecret) {
+  const parts = [];
+  for (const prop of payload.signature.properties) {
+    const v = resolvePath(payload.data, prop);
+    if (v === void 0 || v === null) return false;
+    parts.push(String(v));
+  }
+  const raw2 = parts.join("") + String(payload.timestamp) + eventsSecret;
+  const computed = createHash("sha256").update(raw2).digest("hex");
+  return computed === payload.signature.checksum;
+}
+function computeNewPaidUntil(current, product, now = Date.now()) {
+  const base = Math.max(now, current.paidUntil ?? 0);
+  return base + product.durationDays * 864e5;
+}
 
 // src/routes/brand.ts
 var brandRoutes = new Hono2();
@@ -72060,6 +72083,79 @@ productsRoutes.get("/", async (c) => {
   return c.json(rows);
 });
 
+// src/routes/webhooks.ts
+init_drizzle_orm();
+init_client();
+init_schema();
+var webhooksRoutes = new Hono2();
+var TERMINAL = /* @__PURE__ */ new Set(["APPROVED", "DECLINED", "VOIDED", "ERROR"]);
+webhooksRoutes.post("/wompi", async (c) => {
+  const secret = process.env.WOMPI_EVENTS_SECRET;
+  if (!secret) return c.json({ error: "wompi_not_configured" }, 500);
+  let body;
+  try {
+    body = await c.req.json();
+  } catch {
+    return c.json({ error: "bad_json" }, 400);
+  }
+  if (!verifyWebhookSignature(body, secret)) {
+    return c.json({ error: "invalid_signature" }, 401);
+  }
+  if (body.event !== "transaction.updated") {
+    return c.json({ ok: true, ignored: "unhandled_event" });
+  }
+  const tx = body?.data?.transaction;
+  if (!tx?.reference || !tx?.status) {
+    return c.json({ ok: true, ignored: "malformed_payload" });
+  }
+  const purchase = await db.query.purchases.findFirst({
+    where: eq(purchases.wompiReference, tx.reference)
+  });
+  if (!purchase) {
+    return c.json({ ok: true, ignored: "unknown_reference" });
+  }
+  if (TERMINAL.has(purchase.status)) {
+    return c.json({ ok: true, ignored: "already_processed" });
+  }
+  const status = tx.status;
+  if (status === "PENDING") {
+    return c.json({ ok: true, ignored: "still_pending" });
+  }
+  await db.transaction(async (tx2) => {
+    const now = Date.now();
+    await tx2.update(purchases).set({
+      status,
+      wompiTransactionId: tx.id,
+      paidAt: status === "APPROVED" ? now : null,
+      updatedAt: now
+    }).where(eq(purchases.id, purchase.id));
+    if (status === "APPROVED") {
+      const product = await tx2.query.products.findFirst({
+        where: eq(products.id, purchase.productId)
+      });
+      if (!product || product.durationDays == null) return;
+      const sub = await tx2.query.brandSubscriptions.findFirst({
+        where: eq(brandSubscriptions.brandId, purchase.brandId)
+      });
+      const newPaidUntil = computeNewPaidUntil(
+        { paidUntil: sub?.paidUntil ?? null },
+        { durationDays: product.durationDays },
+        now
+      );
+      if (sub) {
+        await tx2.update(brandSubscriptions).set({
+          tier: "paid",
+          status: "active",
+          paidUntil: newPaidUntil,
+          trialEndsAt: null,
+          updatedAt: now
+        }).where(eq(brandSubscriptions.id, sub.id));
+      }
+    }
+  });
+  return c.json({ ok: true });
+});
+
 // src/app.ts
 var app = new Hono2().basePath("/api");
 app.use("*", cors({
@@ -72080,6 +72176,7 @@ app.route("/payments", paymentsRoutes);
 app.route("/brands", brandsRoutes);
 app.route("/brand", brandRoutes);
 app.route("/products", productsRoutes);
+app.route("/webhooks", webhooksRoutes);
 app.get("/health", (c) => c.json({ ok: true }));
 var app_default = app;
 

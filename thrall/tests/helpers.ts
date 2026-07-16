@@ -13,7 +13,7 @@ export async function createTestBrand(opts: {
 } = {}) {
   const id = newId()
   await db.insert(brands).values({
-    id, name: 'Test Brand', isActive: 1,
+    id, name: `Test Brand ${id}`, isActive: 1,
     createdAt: Date.now(), updatedAt: Date.now(),
   })
   await db.insert(brandSubscriptions).values({

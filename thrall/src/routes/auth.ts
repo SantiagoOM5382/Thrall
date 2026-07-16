@@ -75,23 +75,39 @@ authRoutes.post('/signup', zValidator('json', signupSchema), async (c) => {
   const userId = newId()
   const subId = newId()
   const trialEndsAt = now + TRIAL_DAYS * 86400 * 1000
+  const hashedPassword = await hashPassword(data.password)
 
-  await db.insert(brands).values({
-    id: brandId, name: data.brandName, isActive: 1, createdAt: now, updatedAt: now,
-  })
-  await db.insert(brandSubscriptions).values({
-    id: subId, brandId,
-    tier: 'free', status: 'trial',
-    trialEndsAt, paidUntil: null, isGrandfathered: 0,
-    createdAt: now, updatedAt: now,
-  })
-  await db.insert(users).values({
-    id: userId, brandId,
-    name: data.adminName, email: data.email,
-    password: await hashPassword(data.password),
-    role: 'admin', isActive: 1,
-    createdAt: now, updatedAt: now,
-  })
+  try {
+    await db.transaction(async (tx) => {
+      await tx.insert(brands).values({
+        id: brandId, name: data.brandName, isActive: 1, createdAt: now, updatedAt: now,
+      })
+      await tx.insert(brandSubscriptions).values({
+        id: subId, brandId,
+        tier: 'free', status: 'trial',
+        trialEndsAt, paidUntil: null, isGrandfathered: 0,
+        createdAt: now, updatedAt: now,
+      })
+      await tx.insert(users).values({
+        id: userId, brandId,
+        name: data.adminName, email: data.email,
+        password: hashedPassword,
+        role: 'admin', isActive: 1,
+        createdAt: now, updatedAt: now,
+      })
+    })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    if (message.includes('SQLITE_CONSTRAINT')) {
+      if (message.includes('brands_name_lower_idx')) {
+        return c.json({ error: 'brand_name_in_use' }, 409)
+      }
+      if (message.includes('users_email_idx')) {
+        return c.json({ error: 'email_in_use' }, 409)
+      }
+    }
+    throw err
+  }
 
   const token = await signToken({ sub: userId, role: 'admin', brandId, name: data.adminName })
   return c.json({

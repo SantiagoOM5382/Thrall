@@ -54,6 +54,28 @@ describe('POST /api/auth/signup', () => {
     expect(res.status).toBe(409)
   })
 
+  it('leaves no orphan brand when a racing duplicate-email signup fails', async () => {
+    await app.request('/api/auth/signup', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ brandName: 'Orphan Check Brand 1', adminName: 'X', email: 'race@x.co', password: 'password123' }),
+    })
+
+    const brandsBefore = await db.query.brands.findMany()
+
+    const res = await app.request('/api/auth/signup', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ brandName: 'Orphan Check Brand 2', adminName: 'Y', email: 'race@x.co', password: 'password123' }),
+    })
+    expect(res.status).toBe(409)
+    const body = await res.json()
+    expect(body.error).toBe('email_in_use')
+
+    const brandsAfter = await db.query.brands.findMany()
+    expect(brandsAfter.length).toBe(brandsBefore.length)
+    const orphan = await db.query.brands.findFirst({ where: eq(brands.name, 'Orphan Check Brand 2') })
+    expect(orphan).toBeUndefined()
+  })
+
   it('rejects short password with 400', async () => {
     const res = await app.request('/api/auth/signup', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },

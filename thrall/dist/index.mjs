@@ -6501,13 +6501,16 @@ var init_schema = __esm({
   "src/db/schema.ts"() {
     "use strict";
     init_sqlite_core();
+    init_drizzle_orm();
     brands = sqliteTable("brands", {
       id: text("id").primaryKey(),
       name: text("name").notNull(),
       isActive: integer2("is_active").notNull().default(1),
       createdAt: integer2("created_at").notNull(),
       updatedAt: integer2("updated_at").notNull()
-    });
+    }, (t) => ({
+      nameIdx: uniqueIndex("brands_name_lower_idx").on(sql`lower(${t.name})`)
+    }));
     users = sqliteTable("users", {
       id: text("id").primaryKey(),
       brandId: text("brand_id").notNull().references(() => brands.id),
@@ -69457,35 +69460,51 @@ authRoutes.post("/signup", zValidator("json", signupSchema), async (c) => {
   const userId = newId();
   const subId = newId();
   const trialEndsAt = now + TRIAL_DAYS * 86400 * 1e3;
-  await db.insert(brands).values({
-    id: brandId,
-    name: data.brandName,
-    isActive: 1,
-    createdAt: now,
-    updatedAt: now
-  });
-  await db.insert(brandSubscriptions).values({
-    id: subId,
-    brandId,
-    tier: "free",
-    status: "trial",
-    trialEndsAt,
-    paidUntil: null,
-    isGrandfathered: 0,
-    createdAt: now,
-    updatedAt: now
-  });
-  await db.insert(users).values({
-    id: userId,
-    brandId,
-    name: data.adminName,
-    email: data.email,
-    password: await hashPassword(data.password),
-    role: "admin",
-    isActive: 1,
-    createdAt: now,
-    updatedAt: now
-  });
+  const hashedPassword = await hashPassword(data.password);
+  try {
+    await db.transaction(async (tx) => {
+      await tx.insert(brands).values({
+        id: brandId,
+        name: data.brandName,
+        isActive: 1,
+        createdAt: now,
+        updatedAt: now
+      });
+      await tx.insert(brandSubscriptions).values({
+        id: subId,
+        brandId,
+        tier: "free",
+        status: "trial",
+        trialEndsAt,
+        paidUntil: null,
+        isGrandfathered: 0,
+        createdAt: now,
+        updatedAt: now
+      });
+      await tx.insert(users).values({
+        id: userId,
+        brandId,
+        name: data.adminName,
+        email: data.email,
+        password: hashedPassword,
+        role: "admin",
+        isActive: 1,
+        createdAt: now,
+        updatedAt: now
+      });
+    });
+  } catch (err) {
+    const message2 = err instanceof Error ? err.message : String(err);
+    if (message2.includes("SQLITE_CONSTRAINT")) {
+      if (message2.includes("brands_name_lower_idx")) {
+        return c.json({ error: "brand_name_in_use" }, 409);
+      }
+      if (message2.includes("users_email_idx")) {
+        return c.json({ error: "email_in_use" }, 409);
+      }
+    }
+    throw err;
+  }
   const token = await signToken({ sub: userId, role: "admin", brandId, name: data.adminName });
   return c.json({
     token,

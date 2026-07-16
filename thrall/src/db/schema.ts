@@ -1,4 +1,5 @@
 import { text, integer, sqliteTable, uniqueIndex } from 'drizzle-orm/sqlite-core'
+import { sql } from 'drizzle-orm'
 
 export const brands = sqliteTable('brands', {
   id: text('id').primaryKey(),
@@ -6,7 +7,9 @@ export const brands = sqliteTable('brands', {
   isActive: integer('is_active').notNull().default(1),
   createdAt: integer('created_at').notNull(),
   updatedAt: integer('updated_at').notNull(),
-})
+}, (t) => ({
+  nameIdx: uniqueIndex('brands_name_lower_idx').on(sql`lower(${t.name})`),
+}))
 
 export const users = sqliteTable('users', {
   id: text('id').primaryKey(),

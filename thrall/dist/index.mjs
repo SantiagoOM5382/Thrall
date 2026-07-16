@@ -1576,8 +1576,8 @@ function haveSameKeys(left, right) {
   if (leftKeys.length !== rightKeys.length) {
     return false;
   }
-  for (const [index, key] of leftKeys.entries()) {
-    if (key !== rightKeys[index]) {
+  for (const [index2, key] of leftKeys.entries()) {
+    if (key !== rightKeys[index2]) {
       return false;
     }
   }
@@ -3025,6 +3025,9 @@ var init_checks = __esm({
 });
 
 // node_modules/drizzle-orm/sqlite-core/indexes.js
+function index(name) {
+  return new IndexBuilderOn(name, false);
+}
 function uniqueIndex(name) {
   return new IndexBuilderOn(name, true);
 }
@@ -3535,8 +3538,8 @@ var init_dialect = __esm({
         }
         const joinsArray = [];
         if (joins) {
-          for (const [index, joinMeta] of joins.entries()) {
-            if (index === 0) {
+          for (const [index2, joinMeta] of joins.entries()) {
+            if (index2 === 0) {
               joinsArray.push(sql` `);
             }
             const table = joinMeta.table;
@@ -3556,7 +3559,7 @@ var init_dialect = __esm({
                 sql`${sql.raw(joinMeta.joinType)} join ${table}${onSql}`
               );
             }
-            if (index < joins.length - 1) {
+            if (index2 < joins.length - 1) {
               joinsArray.push(sql` `);
             }
           }
@@ -3569,9 +3572,9 @@ var init_dialect = __esm({
       buildOrderBy(orderBy) {
         const orderByList = [];
         if (orderBy) {
-          for (const [index, orderByValue] of orderBy.entries()) {
+          for (const [index2, orderByValue] of orderBy.entries()) {
             orderByList.push(orderByValue);
-            if (index < orderBy.length - 1) {
+            if (index2 < orderBy.length - 1) {
               orderByList.push(sql`, `);
             }
           }
@@ -3624,9 +3627,9 @@ var init_dialect = __esm({
         const havingSql = having ? sql` having ${having}` : void 0;
         const groupByList = [];
         if (groupBy) {
-          for (const [index, groupByValue] of groupBy.entries()) {
+          for (const [index2, groupByValue] of groupBy.entries()) {
             groupByList.push(groupByValue);
-            if (index < groupBy.length - 1) {
+            if (index2 < groupBy.length - 1) {
               groupByList.push(sql`, `);
             }
           }
@@ -6491,12 +6494,14 @@ __export(schema_exports, {
   loans: () => loans,
   payMethods: () => payMethods,
   payments: () => payments,
+  products: () => products,
+  purchases: () => purchases,
   serviceExtras: () => serviceExtras,
   services: () => services,
   userImages: () => userImages,
   users: () => users
 });
-var brands, users, userImages, payMethods, services, serviceExtras, auditLogs, brandSubscriptions, fines, loans, payments;
+var brands, users, userImages, payMethods, services, serviceExtras, auditLogs, brandSubscriptions, products, purchases, fines, loans, payments;
 var init_schema = __esm({
   "src/db/schema.ts"() {
     "use strict";
@@ -6590,6 +6595,36 @@ var init_schema = __esm({
       updatedAt: integer2("updated_at").notNull()
     }, (t) => ({
       brandIdx: uniqueIndex("brand_subscriptions_brand_idx").on(t.brandId)
+    }));
+    products = sqliteTable("products", {
+      id: text("id").primaryKey(),
+      code: text("code").notNull(),
+      type: text("type", { enum: ["SUBSCRIPTION", "TOKEN_PACK"] }).notNull(),
+      displayName: text("display_name").notNull(),
+      priceCop: integer2("price_cop").notNull(),
+      durationDays: integer2("duration_days"),
+      tokensGranted: integer2("tokens_granted"),
+      isActive: integer2("is_active").notNull().default(1),
+      createdAt: integer2("created_at").notNull(),
+      updatedAt: integer2("updated_at").notNull()
+    }, (t) => ({
+      codeIdx: uniqueIndex("products_code_idx").on(t.code)
+    }));
+    purchases = sqliteTable("purchases", {
+      id: text("id").primaryKey(),
+      brandId: text("brand_id").notNull().references(() => brands.id),
+      productId: text("product_id").notNull().references(() => products.id),
+      userId: text("user_id").notNull().references(() => users.id),
+      amountCop: integer2("amount_cop").notNull(),
+      status: text("status", { enum: ["PENDING", "APPROVED", "DECLINED", "VOIDED", "ERROR"] }).notNull(),
+      wompiReference: text("wompi_reference").notNull(),
+      wompiTransactionId: text("wompi_transaction_id"),
+      paidAt: integer2("paid_at"),
+      createdAt: integer2("created_at").notNull(),
+      updatedAt: integer2("updated_at").notNull()
+    }, (t) => ({
+      refIdx: uniqueIndex("purchases_wompi_reference_idx").on(t.wompiReference),
+      brandCreatedIdx: index("purchases_brand_created_idx").on(t.brandId, t.createdAt)
     }));
     fines = sqliteTable("fines", {
       id: text("id").primaryKey(),
@@ -7974,10 +8009,10 @@ var require_realtime = __commonJS({
       return Array.from({ length }, getRealtimeSignal);
     };
     exports.getRealtimeSignals = getRealtimeSignals;
-    var getRealtimeSignal = function(value, index) {
+    var getRealtimeSignal = function(value, index2) {
       return {
-        name: `SIGRT${index + 1}`,
-        number: SIGRTMIN + index,
+        name: `SIGRT${index2 + 1}`,
+        number: SIGRTMIN + index2,
         action: "terminate",
         description: "Application-specific signal (realtime)",
         standard: "posix"
@@ -8180,7 +8215,7 @@ var require_stdio = __commonJS({
         throw new TypeError(`Expected \`stdio\` to be of type \`string\` or \`Array\`, got \`${typeof stdio}\``);
       }
       const length = Math.max(stdio.length, aliases.length);
-      return Array.from({ length }, (value, index) => stdio[index]);
+      return Array.from({ length }, (value, index2) => stdio[index2]);
     };
     module.exports = normalizeStdio;
     module.exports.node = (options) => {
@@ -9092,8 +9127,8 @@ var require_envpath = __commonJS({
         return env.PATH ?? "";
       }
       const pathKeys = Object.keys(env).filter((key) => key.toLowerCase() === "path");
-      for (let index = pathKeys.length - 1; index >= 0; index--) {
-        const value = env[pathKeys[index]];
+      for (let index2 = pathKeys.length - 1; index2 >= 0; index2--) {
+        const value = env[pathKeys[index2]];
         if (value !== void 0) {
           return value;
         }
@@ -12481,11 +12516,11 @@ var require_schemas = __commonJS({
         return payload;
       };
     });
-    function handleArrayResult2(result, final, index) {
+    function handleArrayResult2(result, final, index2) {
       if (result.issues.length) {
-        final.issues.push(...util.prefixIssues(index, result.issues));
+        final.issues.push(...util.prefixIssues(index2, result.issues));
       }
-      final.value[index] = result.value;
+      final.value[index2] = result.value;
     }
     exports.$ZodArray = core.$constructor("$ZodArray", (inst, def) => {
       exports.$ZodType.init(inst, def);
@@ -12893,14 +12928,14 @@ var require_schemas = __commonJS({
           return { valid: false, mergeErrorPath: [] };
         }
         const newArray = [];
-        for (let index = 0; index < a.length; index++) {
-          const itemA = a[index];
-          const itemB = b[index];
+        for (let index2 = 0; index2 < a.length; index2++) {
+          const itemA = a[index2];
+          const itemB = b[index2];
           const sharedValue = mergeValues2(itemA, itemB);
           if (!sharedValue.valid) {
             return {
               valid: false,
-              mergeErrorPath: [index, ...sharedValue.mergeErrorPath]
+              mergeErrorPath: [index2, ...sharedValue.mergeErrorPath]
             };
           }
           newArray.push(sharedValue.data);
@@ -12992,11 +13027,11 @@ var require_schemas = __commonJS({
         return payload;
       };
     });
-    function handleTupleResult2(result, final, index) {
+    function handleTupleResult2(result, final, index2) {
       if (result.issues.length) {
-        final.issues.push(...util.prefixIssues(index, result.issues));
+        final.issues.push(...util.prefixIssues(index2, result.issues));
       }
-      final.value[index] = result.value;
+      final.value[index2] = result.value;
     }
     exports.$ZodRecord = core.$constructor("$ZodRecord", (inst, def) => {
       exports.$ZodType.init(inst, def);
@@ -31270,16 +31305,16 @@ var require_tree = __commonJS({
        * @param {any} value
        * @param {number} index
        */
-      constructor(key, value, index) {
-        if (index === void 0 || index >= key.length) {
+      constructor(key, value, index2) {
+        if (index2 === void 0 || index2 >= key.length) {
           throw new TypeError("Unreachable");
         }
-        const code = this.code = key.charCodeAt(index);
+        const code = this.code = key.charCodeAt(index2);
         if (code > 127) {
           throw new TypeError("key must be ascii string");
         }
-        if (key.length !== ++index) {
-          this.middle = new _TstNode(key, value, index);
+        if (key.length !== ++index2) {
+          this.middle = new _TstNode(key, value, index2);
         } else {
           this.value = value;
         }
@@ -31293,34 +31328,34 @@ var require_tree = __commonJS({
         if (length === 0) {
           throw new TypeError("Unreachable");
         }
-        let index = 0;
+        let index2 = 0;
         let node = this;
         while (true) {
-          const code = key.charCodeAt(index);
+          const code = key.charCodeAt(index2);
           if (code > 127) {
             throw new TypeError("key must be ascii string");
           }
           if (node.code === code) {
-            if (length === ++index) {
+            if (length === ++index2) {
               node.value = value;
               break;
             } else if (node.middle !== null) {
               node = node.middle;
             } else {
-              node.middle = new _TstNode(key, value, index);
+              node.middle = new _TstNode(key, value, index2);
               break;
             }
           } else if (node.code < code) {
             if (node.left !== null) {
               node = node.left;
             } else {
-              node.left = new _TstNode(key, value, index);
+              node.left = new _TstNode(key, value, index2);
               break;
             }
           } else if (node.right !== null) {
             node = node.right;
           } else {
-            node.right = new _TstNode(key, value, index);
+            node.right = new _TstNode(key, value, index2);
             break;
           }
         }
@@ -31331,16 +31366,16 @@ var require_tree = __commonJS({
        */
       search(key) {
         const keylength = key.length;
-        let index = 0;
+        let index2 = 0;
         let node = this;
-        while (node !== null && index < keylength) {
-          let code = key[index];
+        while (node !== null && index2 < keylength) {
+          let code = key[index2];
           if (code <= 90 && code >= 65) {
             code |= 32;
           }
           while (node !== null) {
             if (code === node.code) {
-              if (keylength === ++index) {
+              if (keylength === ++index2) {
                 return node;
               }
               node = node.middle;
@@ -34178,7 +34213,7 @@ var require_webidl = __commonJS({
         }
         const method = typeof Iterable === "function" ? Iterable() : V?.[Symbol.iterator]?.();
         const seq = [];
-        let index = 0;
+        let index2 = 0;
         if (method === void 0 || typeof method.next !== "function") {
           throw webidl.errors.exception({
             header: prefix,
@@ -34190,7 +34225,7 @@ var require_webidl = __commonJS({
           if (done) {
             break;
           }
-          seq.push(converter(value, prefix, `${argument}[${index++}]`));
+          seq.push(converter(value, prefix, `${argument}[${index2++}]`));
         }
         return seq;
       };
@@ -34299,10 +34334,10 @@ var require_webidl = __commonJS({
     };
     webidl.converters.ByteString = function(V, prefix, argument) {
       const x = webidl.converters.DOMString(V, prefix, argument);
-      for (let index = 0; index < x.length; index++) {
-        if (x.charCodeAt(index) > 255) {
+      for (let index2 = 0; index2 < x.length; index2++) {
+        if (x.charCodeAt(index2) > 255) {
           throw new TypeError(
-            `Cannot convert argument to a ByteString because the character at index ${index} has a value of ${x.charCodeAt(index)} which is greater than 255.`
+            `Cannot convert argument to a ByteString because the character at index ${index2} has a value of ${x.charCodeAt(index2)} which is greater than 255.`
           );
         }
       }
@@ -34877,17 +34912,17 @@ var require_util3 = __commonJS({
               `'next' called on an object that does not implement interface ${name} Iterator.`
             );
           }
-          const index = this.#index;
+          const index2 = this.#index;
           const values = this.#target[kInternalIterator];
           const len = values.length;
-          if (index >= len) {
+          if (index2 >= len) {
             return {
               value: void 0,
               done: true
             };
           }
-          const { [keyIndex]: key, [valueIndex]: value } = values[index];
-          this.#index = index + 1;
+          const { [keyIndex]: key, [valueIndex]: value } = values[index2];
+          this.#index = index2 + 1;
           let result;
           switch (this.#kind) {
             case "key":
@@ -40964,8 +40999,8 @@ var require_mock_utils = __commonJS({
     function buildHeadersFromArray(headers) {
       const clone2 = headers.slice();
       const entries = [];
-      for (let index = 0; index < clone2.length; index += 2) {
-        entries.push([clone2[index], clone2[index + 1]]);
+      for (let index2 = 0; index2 < clone2.length; index2 += 2) {
+        entries.push([clone2[index2], clone2[index2 + 1]]);
       }
       return Object.fromEntries(entries);
     }
@@ -41052,14 +41087,14 @@ var require_mock_utils = __commonJS({
       return newMockDispatch;
     }
     function deleteMockDispatch(mockDispatches, key) {
-      const index = mockDispatches.findIndex((dispatch) => {
+      const index2 = mockDispatches.findIndex((dispatch) => {
         if (!dispatch.consumed) {
           return false;
         }
         return matchKey(dispatch, key);
       });
-      if (index !== -1) {
-        mockDispatches.splice(index, 1);
+      if (index2 !== -1) {
+        mockDispatches.splice(index2, 1);
       }
     }
     function buildKey(opts) {
@@ -45814,18 +45849,18 @@ var require_cache = __commonJS({
         const p = Promise.all(responsePromises);
         const responses = await p;
         const operations = [];
-        let index = 0;
+        let index2 = 0;
         for (const response of responses) {
           const operation = {
             type: "put",
             // 7.3.2
-            request: requestList[index],
+            request: requestList[index2],
             // 7.3.3
             response
             // 7.3.4
           };
           operations.push(operation);
-          index++;
+          index2++;
         }
         const cacheJobPromise = createDeferredPromise();
         let errorData = null;
@@ -49215,13 +49250,13 @@ var require_throttleit = __commonJS({
 // node_modules/hono/dist/compose.js
 var compose = (middleware, onError, onNotFound) => {
   return (context, next) => {
-    let index = -1;
+    let index2 = -1;
     return dispatch(0);
     async function dispatch(i) {
-      if (i <= index) {
+      if (i <= index2) {
         throw new Error("next() called multiple times");
       }
-      index = i;
+      index2 = i;
       let res;
       let isError3 = false;
       let handler2;
@@ -49352,8 +49387,8 @@ var handleParsingNestedValues = (form, key, value) => {
   }
   let nestedForm = form;
   const keys = key.split(".");
-  keys.forEach((key2, index) => {
-    if (index === keys.length - 1) {
+  keys.forEach((key2, index2) => {
+    if (index2 === keys.length - 1) {
       nestedForm[key2] = value;
     } else {
       if (!nestedForm[key2] || typeof nestedForm[key2] !== "object" || Array.isArray(nestedForm[key2]) || nestedForm[key2] instanceof File) {
@@ -49379,8 +49414,8 @@ var splitRoutingPath = (routePath) => {
 };
 var extractGroupsFromPath = (path) => {
   const groups = [];
-  path = path.replace(/\{[^}]+\}/g, (match2, index) => {
-    const mark = `@${index}`;
+  path = path.replace(/\{[^}]+\}/g, (match2, index2) => {
+    const mark = `@${index2}`;
     groups.push([mark, match2]);
     return mark;
   });
@@ -50701,8 +50736,8 @@ function match(method, path) {
     if (!match3) {
       return [[], emptyParam];
     }
-    const index = match3.indexOf("", 1);
-    return [matcher[1][index], match3];
+    const index2 = match3.indexOf("", 1);
+    return [matcher[1][index2], match3];
   });
   this.match = match2;
   return match2(method, path);
@@ -50737,7 +50772,7 @@ var Node = class _Node {
   #index;
   #varIndex;
   #children = /* @__PURE__ */ Object.create(null);
-  insert(tokens, index, paramMap, context, pathErrorCheckOnly) {
+  insert(tokens, index2, paramMap, context, pathErrorCheckOnly) {
     if (tokens.length === 0) {
       if (this.#index !== void 0) {
         throw PATH_ERROR;
@@ -50745,7 +50780,7 @@ var Node = class _Node {
       if (pathErrorCheckOnly) {
         return;
       }
-      this.#index = index;
+      this.#index = index2;
       return;
     }
     const [token, ...restTokens] = tokens;
@@ -50795,7 +50830,7 @@ var Node = class _Node {
         node = this.#children[token] = new _Node();
       }
     }
-    node.insert(restTokens, index, paramMap, context, pathErrorCheckOnly);
+    node.insert(restTokens, index2, paramMap, context, pathErrorCheckOnly);
   }
   buildRegExpStr() {
     const childKeys = Object.keys(this.#children).sort(compareKey);
@@ -50820,7 +50855,7 @@ var Node = class _Node {
 var Trie = class {
   #context = { varIndex: 0 };
   #root = new Node();
-  insert(path, index, pathErrorCheckOnly) {
+  insert(path, index2, pathErrorCheckOnly) {
     const paramAssoc = [];
     const groups = [];
     for (let i = 0; ; ) {
@@ -50846,7 +50881,7 @@ var Trie = class {
         }
       }
     }
-    this.#root.insert(tokens, index, paramAssoc, this.#context, pathErrorCheckOnly);
+    this.#root.insert(tokens, index2, paramAssoc, this.#context, pathErrorCheckOnly);
     return paramAssoc;
   }
   buildRegExp() {
@@ -54482,11 +54517,11 @@ var $ZodDate = /* @__PURE__ */ $constructor("$ZodDate", (inst, def) => {
     return payload;
   };
 });
-function handleArrayResult(result, final, index) {
+function handleArrayResult(result, final, index2) {
   if (result.issues.length) {
-    final.issues.push(...prefixIssues(index, result.issues));
+    final.issues.push(...prefixIssues(index2, result.issues));
   }
-  final.value[index] = result.value;
+  final.value[index2] = result.value;
 }
 var $ZodArray = /* @__PURE__ */ $constructor("$ZodArray", (inst, def) => {
   $ZodType.init(inst, def);
@@ -55020,14 +55055,14 @@ function mergeValues(a, b) {
       return { valid: false, mergeErrorPath: [] };
     }
     const newArray = [];
-    for (let index = 0; index < a.length; index++) {
-      const itemA = a[index];
-      const itemB = b[index];
+    for (let index2 = 0; index2 < a.length; index2++) {
+      const itemA = a[index2];
+      const itemB = b[index2];
       const sharedValue = mergeValues(itemA, itemB);
       if (!sharedValue.valid) {
         return {
           valid: false,
-          mergeErrorPath: [index, ...sharedValue.mergeErrorPath]
+          mergeErrorPath: [index2, ...sharedValue.mergeErrorPath]
         };
       }
       newArray.push(sharedValue.data);
@@ -55153,11 +55188,11 @@ function getTupleOptStart(items, key) {
   }
   return 0;
 }
-function handleTupleResult(result, final, index) {
+function handleTupleResult(result, final, index2) {
   if (result.issues.length) {
-    final.issues.push(...prefixIssues(index, result.issues));
+    final.issues.push(...prefixIssues(index2, result.issues));
   }
-  final.value[index] = result.value;
+  final.value[index2] = result.value;
 }
 function handleTupleResults(itemResults, final, items, input, optoutStart) {
   for (let i = 0; i < items.length; i++) {

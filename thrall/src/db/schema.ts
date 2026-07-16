@@ -1,4 +1,4 @@
-import { text, integer, sqliteTable, uniqueIndex } from 'drizzle-orm/sqlite-core'
+import { text, integer, sqliteTable, uniqueIndex, index } from 'drizzle-orm/sqlite-core'
 import { sql } from 'drizzle-orm'
 
 export const brands = sqliteTable('brands', {
@@ -96,6 +96,38 @@ export const brandSubscriptions = sqliteTable('brand_subscriptions', {
   updatedAt: integer('updated_at').notNull(),
 }, (t) => ({
   brandIdx: uniqueIndex('brand_subscriptions_brand_idx').on(t.brandId),
+}))
+
+export const products = sqliteTable('products', {
+  id: text('id').primaryKey(),
+  code: text('code').notNull(),
+  type: text('type', { enum: ['SUBSCRIPTION', 'TOKEN_PACK'] }).notNull(),
+  displayName: text('display_name').notNull(),
+  priceCop: integer('price_cop').notNull(),
+  durationDays: integer('duration_days'),
+  tokensGranted: integer('tokens_granted'),
+  isActive: integer('is_active').notNull().default(1),
+  createdAt: integer('created_at').notNull(),
+  updatedAt: integer('updated_at').notNull(),
+}, (t) => ({
+  codeIdx: uniqueIndex('products_code_idx').on(t.code),
+}))
+
+export const purchases = sqliteTable('purchases', {
+  id: text('id').primaryKey(),
+  brandId: text('brand_id').notNull().references(() => brands.id),
+  productId: text('product_id').notNull().references(() => products.id),
+  userId: text('user_id').notNull().references(() => users.id),
+  amountCop: integer('amount_cop').notNull(),
+  status: text('status', { enum: ['PENDING', 'APPROVED', 'DECLINED', 'VOIDED', 'ERROR'] }).notNull(),
+  wompiReference: text('wompi_reference').notNull(),
+  wompiTransactionId: text('wompi_transaction_id'),
+  paidAt: integer('paid_at'),
+  createdAt: integer('created_at').notNull(),
+  updatedAt: integer('updated_at').notNull(),
+}, (t) => ({
+  refIdx: uniqueIndex('purchases_wompi_reference_idx').on(t.wompiReference),
+  brandCreatedIdx: index('purchases_brand_created_idx').on(t.brandId, t.createdAt),
 }))
 
 export const fines = sqliteTable('fines', {

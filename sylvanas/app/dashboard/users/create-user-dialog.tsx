@@ -6,6 +6,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { toast } from "sonner"
 import { createUser } from "./actions"
+import { useSubscription } from "@/lib/subscription-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -34,6 +35,14 @@ type FormValues = z.infer<typeof schema>
 export function CreateUserDialog() {
   const [open, setOpen] = useState(false)
   const [isPending, startTransition] = useTransition()
+  const sub = useSubscription()
+  const roleOptions = sub.isPaidEffective
+    ? [
+        { v: "model", l: "Modelo" },
+        { v: "monitor", l: "Monitor" },
+        { v: "admin", l: "Administrador" },
+      ]
+    : [{ v: "model", l: "Modelo" }]
   const {
     register,
     handleSubmit,
@@ -76,10 +85,21 @@ export function CreateUserDialog() {
           <div className="space-y-2">
             <Label htmlFor="u-role">Rol</Label>
             <select id="u-role" className={selectClass} {...register("role")}>
-              <option value="model">Modelo</option>
-              <option value="monitor">Monitor</option>
-              <option value="admin">Administrador</option>
+              {roleOptions.map((r) => (
+                <option key={r.v} value={r.v}>
+                  {r.l}
+                </option>
+              ))}
             </select>
+            {!sub.isPaidEffective && (
+              <p className="text-xs text-neutral-500 mt-1">
+                Solo puedes crear modelos en el plan gratuito.{" "}
+                <a href="/dashboard/subscribe" className="underline">
+                  Suscribirse
+                </a>{" "}
+                para agregar admins y monitores.
+              </p>
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="u-name">Nombre</Label>

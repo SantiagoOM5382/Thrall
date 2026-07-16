@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
-import { and, eq } from 'drizzle-orm'
+import { and, desc, eq } from 'drizzle-orm'
 import { db } from '../db/client'
 import { products, purchases } from '../db/schema'
 import { authMiddleware, type AppEnv } from '../middleware/auth'
@@ -84,4 +84,24 @@ brandRoutes.post('/subscribe', zValidator('json', subscribeSchema), async (c) =>
   })
 
   return c.json({ checkoutUrl })
+})
+
+brandRoutes.get('/purchases/latest', async (c) => {
+  const user = c.get('user')
+  const row = await db
+    .select({
+      id: purchases.id,
+      productCode: products.code,
+      amountCop: purchases.amountCop,
+      status: purchases.status,
+      wompiReference: purchases.wompiReference,
+      paidAt: purchases.paidAt,
+      createdAt: purchases.createdAt,
+    })
+    .from(purchases)
+    .innerJoin(products, eq(products.id, purchases.productId))
+    .where(eq(purchases.brandId, user.brandId))
+    .orderBy(desc(purchases.createdAt))
+    .limit(1)
+  return c.json({ latest: row[0] ?? null })
 })

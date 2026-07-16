@@ -72027,6 +72027,19 @@ brandRoutes.post("/subscribe", zValidator("json", subscribeSchema), async (c) =>
   });
   return c.json({ checkoutUrl });
 });
+brandRoutes.get("/purchases/latest", async (c) => {
+  const user = c.get("user");
+  const row = await db.select({
+    id: purchases.id,
+    productCode: products.code,
+    amountCop: purchases.amountCop,
+    status: purchases.status,
+    wompiReference: purchases.wompiReference,
+    paidAt: purchases.paidAt,
+    createdAt: purchases.createdAt
+  }).from(purchases).innerJoin(products, eq(products.id, purchases.productId)).where(eq(purchases.brandId, user.brandId)).orderBy(desc(purchases.createdAt)).limit(1);
+  return c.json({ latest: row[0] ?? null });
+});
 
 // src/routes/products.ts
 init_drizzle_orm();

@@ -30,6 +30,11 @@ export function ModelGrid({ models }: { models: Model[] }) {
                 className="group block w-full text-left focus-visible:outline-none"
               >
                 <div className="relative aspect-[3/4] w-full overflow-hidden bg-[var(--surface)] ring-1 ring-[var(--hair)] transition-[box-shadow] duration-500 group-hover:ring-[var(--gold)]/40 group-focus-visible:ring-2 group-focus-visible:ring-[var(--gold)]">
+                  {model.isBoosted && (
+                    <span className="absolute left-3 top-3 z-10 rounded-full bg-[var(--gold)] px-3 py-1 text-[0.6rem] font-medium uppercase tracking-[0.14em] text-[var(--espresso)]">
+                      Destacada
+                    </span>
+                  )}
                   {cover ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img

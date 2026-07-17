@@ -10,5 +10,6 @@ export interface Model {
   phone: string | null
   telegram: string | null
   description: string | null
+  isBoosted: boolean
   images: ModelImage[]
 }

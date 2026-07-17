@@ -72209,6 +72209,22 @@ webhooksRoutes.post("/wompi", async (c) => {
   return c.json({ ok: true });
 });
 
+// src/routes/top-services.ts
+init_drizzle_orm();
+init_client();
+init_schema();
+var topServicesRoutes = new Hono2();
+topServicesRoutes.get("/", async (c) => {
+  const rows = await db.select({
+    id: topServices.id,
+    code: topServices.code,
+    displayName: topServices.displayName,
+    tokensCost: topServices.tokensCost,
+    durationHours: topServices.durationHours
+  }).from(topServices).where(eq(topServices.isActive, 1));
+  return c.json(rows);
+});
+
 // src/app.ts
 var app = new Hono2().basePath("/api");
 app.use("*", cors({
@@ -72230,6 +72246,7 @@ app.route("/brands", brandsRoutes);
 app.route("/brand", brandRoutes);
 app.route("/products", productsRoutes);
 app.route("/webhooks", webhooksRoutes);
+app.route("/top-services", topServicesRoutes);
 app.get("/health", (c) => c.json({ ok: true }));
 var app_default = app;
 

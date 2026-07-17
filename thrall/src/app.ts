@@ -14,6 +14,7 @@ import { brandsRoutes } from './routes/brands'
 import { brandRoutes } from './routes/brand'
 import { productsRoutes } from './routes/products'
 import { webhooksRoutes } from './routes/webhooks'
+import { topServicesRoutes } from './routes/top-services'
 
 const app = new Hono().basePath('/api')
 
@@ -37,6 +38,7 @@ app.route('/brands', brandsRoutes)
 app.route('/brand', brandRoutes)
 app.route('/products', productsRoutes)
 app.route('/webhooks', webhooksRoutes)
+app.route('/top-services', topServicesRoutes)
 
 app.get('/health', (c) => c.json({ ok: true }))
 

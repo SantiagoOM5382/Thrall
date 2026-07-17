@@ -72257,23 +72257,52 @@ webhooksRoutes.post("/wompi", async (c) => {
       const product = await tx2.query.products.findFirst({
         where: eq(products.id, purchase.productId)
       });
-      if (!product || product.durationDays == null) return;
-      const sub = await tx2.query.brandSubscriptions.findFirst({
-        where: eq(brandSubscriptions.brandId, purchase.brandId)
-      });
-      const newPaidUntil = computeNewPaidUntil(
-        { paidUntil: sub?.paidUntil ?? null },
-        { durationDays: product.durationDays },
-        now
-      );
-      if (sub) {
-        await tx2.update(brandSubscriptions).set({
-          tier: "paid",
-          status: "active",
-          paidUntil: newPaidUntil,
-          trialEndsAt: null,
-          updatedAt: now
-        }).where(eq(brandSubscriptions.id, sub.id));
+      if (!product) return;
+      if (product.type === "SUBSCRIPTION" && product.durationDays != null) {
+        const sub = await tx2.query.brandSubscriptions.findFirst({
+          where: eq(brandSubscriptions.brandId, purchase.brandId)
+        });
+        const newPaidUntil = computeNewPaidUntil(
+          { paidUntil: sub?.paidUntil ?? null },
+          { durationDays: product.durationDays },
+          now
+        );
+        if (sub) {
+          await tx2.update(brandSubscriptions).set({
+            tier: "paid",
+            status: "active",
+            paidUntil: newPaidUntil,
+            trialEndsAt: null,
+            updatedAt: now
+          }).where(eq(brandSubscriptions.id, sub.id));
+        }
+      } else if (product.type === "TOKEN_PACK" && product.tokensGranted != null) {
+        const wallet = await tx2.query.brandWallets.findFirst({
+          where: eq(brandWallets.brandId, purchase.brandId)
+        });
+        const currentBalance = wallet?.tokensBalance ?? 0;
+        const newBalance = currentBalance + product.tokensGranted;
+        if (wallet) {
+          await tx2.update(brandWallets).set({ tokensBalance: newBalance, updatedAt: now }).where(eq(brandWallets.id, wallet.id));
+        } else {
+          await tx2.insert(brandWallets).values({
+            id: newId(),
+            brandId: purchase.brandId,
+            tokensBalance: newBalance,
+            createdAt: now,
+            updatedAt: now
+          });
+        }
+        await tx2.insert(walletTransactions).values({
+          id: newId(),
+          brandId: purchase.brandId,
+          type: "CREDIT_PURCHASE",
+          amount: product.tokensGranted,
+          balanceAfter: newBalance,
+          purchaseId: purchase.id,
+          description: `Compra ${product.displayName}`,
+          createdAt: now
+        });
       }
     }
   });

@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { createHash } from 'node:crypto'
 import { db } from '../../src/db/client'
-import { purchases, brandSubscriptions } from '../../src/db/schema'
+import { purchases, brandSubscriptions, brandWallets, walletTransactions } from '../../src/db/schema'
 import { eq } from 'drizzle-orm'
 import app from '../../src/app'
 import { createTestBrand, createTestUser } from '../helpers'
@@ -129,5 +129,43 @@ describe('POST /api/webhooks/wompi', () => {
     const sub = await db.query.brandSubscriptions.findFirst({ where: eq(brandSubscriptions.brandId, brand) })
     expect(sub?.tier).toBe('free')
     expect(sub?.paidUntil).toBeNull()
+  })
+})
+
+describe('POST /api/webhooks/wompi — TOKEN_PACK', () => {
+  it('credits the wallet on APPROVED, creating it if missing', async () => {
+    const brand = await createTestBrand({ tier: 'free', status: 'expired', isGrandfathered: 0 })
+    const u = await createTestUser(brand, { role: 'admin' })
+    const ref = 'ref-tok-' + newId()
+    await seedPending(brand, u.id, ref, 'prod_tokens_100')
+    const body = buildPayload({ reference: ref, status: 'APPROVED', amountInCents: 1000000 })
+    const res = await post(body)
+    expect(res.status).toBe(200)
+
+    const wallet = await db.query.brandWallets.findFirst({ where: eq(brandWallets.brandId, brand) })
+    expect(wallet?.tokensBalance).toBe(100)
+
+    const txs = await db.select().from(walletTransactions).where(eq(walletTransactions.brandId, brand))
+    expect(txs).toHaveLength(1)
+    expect(txs[0].type).toBe('CREDIT_PURCHASE')
+    expect(txs[0].amount).toBe(100)
+    expect(txs[0].balanceAfter).toBe(100)
+
+    // Subscription state must be untouched by a token purchase.
+    const sub = await db.query.brandSubscriptions.findFirst({ where: eq(brandSubscriptions.brandId, brand) })
+    expect(sub?.tier).toBe('free')
+  })
+
+  it('adds to an existing balance instead of overwriting it', async () => {
+    const brand = await createTestBrand({ tier: 'free', status: 'expired', isGrandfathered: 0 })
+    const u = await createTestUser(brand, { role: 'admin' })
+    const now = Date.now()
+    await db.insert(brandWallets).values({ id: newId(), brandId: brand, tokensBalance: 40, createdAt: now, updatedAt: now })
+    const ref = 'ref-tok2-' + newId()
+    await seedPending(brand, u.id, ref, 'prod_tokens_500')
+    const body = buildPayload({ reference: ref, status: 'APPROVED', amountInCents: 4000000 })
+    await post(body)
+    const wallet = await db.query.brandWallets.findFirst({ where: eq(brandWallets.brandId, brand) })
+    expect(wallet?.tokensBalance).toBe(540)
   })
 })

@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { CalendarClock, PlusCircle } from "lucide-react"
 import { apiFetch } from "@/lib/api"
 import type { Service, Model, PayMethod, Fine, Loan } from "@/lib/types"
 import {
@@ -77,6 +78,17 @@ export default async function ServicesPage({
   const modelName = new Map(models.map((m) => [m.id, m.name]))
   const payCode = new Map(payMethods.map((p) => [p.id, p.code]))
 
+  const activeServices = services.filter((s) => s.deletedAt === null)
+  const dayTotals = activeServices.reduce(
+    (acc, s) => {
+      const e = calcEarnings(s.basePrice, s.extras.map((x) => x.amount))
+      acc.company += e.company
+      acc.models += e.modelTotal
+      return acc
+    },
+    { company: 0, models: 0 }
+  )
+
   return (
     <PaidGate>
     <div className="space-y-6">
@@ -98,10 +110,36 @@ export default async function ServicesPage({
         </div>
       </div>
 
+      {activeServices.length > 0 && (
+        <div className={cn("grid divide-x rounded-lg border bg-card", isAdmin ? "grid-cols-3" : "grid-cols-2")}>
+          <div className="px-5 py-3">
+            <p className="text-xs text-muted-foreground">Servicios</p>
+            <p className="mt-0.5 text-lg font-semibold tabular-nums">{activeServices.length}</p>
+          </div>
+          {isAdmin && (
+            <div className="px-5 py-3">
+              <p className="text-xs text-muted-foreground">Ganancia empresa</p>
+              <p className="mt-0.5 text-lg font-semibold tabular-nums text-primary">{formatCOP(dayTotals.company)}</p>
+            </div>
+          )}
+          <div className="px-5 py-3">
+            <p className="text-xs text-muted-foreground">Total modelos</p>
+            <p className="mt-0.5 text-lg font-semibold tabular-nums text-positive">{formatCOP(dayTotals.models)}</p>
+          </div>
+        </div>
+      )}
+
       {services.length === 0 ? (
-        <p className="py-16 text-center text-muted-foreground">
-          No hay servicios registrados en este día.
-        </p>
+        <div className="flex flex-col items-center gap-3 py-16 text-center">
+          <span className="flex size-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
+            <CalendarClock className="size-5" />
+          </span>
+          <p className="text-muted-foreground">No hay servicios registrados en este día.</p>
+          <Link href="/dashboard/services/new" className={cn(buttonVariants({ variant: "outline" }), "gap-1.5")}>
+            <PlusCircle className="size-4" />
+            Registrar el primer servicio
+          </Link>
+        </div>
       ) : (
         <div className="rounded-lg border">
           <Table>
@@ -146,17 +184,17 @@ export default async function ServicesPage({
                         </Badge>
                       )}
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right tabular-nums">
                       {deleted ? (
                         formatCOP(s.basePrice)
                       ) : (
                         <EditableBase id={s.id} value={s.basePrice} />
                       )}
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="text-right tabular-nums">
                       {s.extras.length > 0 ? formatCOP(earnings.modelExtras) : "—"}
                     </TableCell>
-                    <TableCell className="text-right font-medium">
+                    <TableCell className="text-right font-medium tabular-nums">
                       {formatCOP(earnings.modelTotal)}
                     </TableCell>
                     <TableCell>{payCode.get(s.payMethodId) ?? "—"}</TableCell>
@@ -193,7 +231,7 @@ export default async function ServicesPage({
                   <TableRow key={f.id} className={cn(f.deletedAt !== null && "bg-muted opacity-60")}>
                     <TableCell>{formatBogotaDate(f.createdAt, { hour: "2-digit", minute: "2-digit" })}</TableCell>
                     <TableCell>{modelName.get(f.modelId) ?? f.modelId}</TableCell>
-                    <TableCell className="text-right">{formatCOP(f.amount)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{formatCOP(f.amount)}</TableCell>
                     <TableCell className="text-muted-foreground">{f.reason}</TableCell>
                     <TableCell className="text-right">
                       {isAdmin && f.deletedAt === null && <DeleteMovementButton kind="fine" id={f.id} />}
@@ -225,7 +263,7 @@ export default async function ServicesPage({
                   <TableRow key={l.id} className={cn(l.deletedAt !== null && "bg-muted opacity-60")}>
                     <TableCell>{formatBogotaDate(l.createdAt, { hour: "2-digit", minute: "2-digit" })}</TableCell>
                     <TableCell>{modelName.get(l.modelId) ?? l.modelId}</TableCell>
-                    <TableCell className="text-right">{formatCOP(l.amount)}</TableCell>
+                    <TableCell className="text-right tabular-nums">{formatCOP(l.amount)}</TableCell>
                     <TableCell className="text-muted-foreground">{l.reason}</TableCell>
                     <TableCell className="text-right">
                       {isAdminOrMonitor && l.deletedAt === null && <DeleteMovementButton kind="loan" id={l.id} />}

@@ -1,26 +1,32 @@
 "use client"
 import { useState } from "react"
-import { createCheckout } from "./actions"
 
 type Product = {
   id: string
   code: string
   displayName: string
   priceCop: number
-  durationDays: number
 }
 
 function formatCop(n: number) {
   return new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(n)
 }
 
-export function PlanCards({ products }: { products: Product[] }) {
+export function ProductCards<P extends Product>({
+  products,
+  purchaseAction,
+  subtitle,
+}: {
+  products: P[]
+  purchaseAction: (productId: string) => Promise<{ ok: true; checkoutUrl: string } | { ok: false; error: string }>
+  subtitle: (p: P) => string
+}) {
   const [pending, setPending] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   async function choose(productId: string) {
     setPending(productId); setError(null)
-    const r = await createCheckout(productId)
+    const r = await purchaseAction(productId)
     if (r.ok) {
       window.location.href = r.checkoutUrl
     } else {
@@ -36,7 +42,7 @@ export function PlanCards({ products }: { products: Product[] }) {
           <div key={p.id} className="rounded-lg border p-6 flex flex-col">
             <h3 className="text-lg font-semibold">{p.displayName}</h3>
             <p className="text-2xl font-bold mt-2">{formatCop(p.priceCop)}</p>
-            <p className="text-sm text-neutral-500 mt-1">{p.durationDays} días de acceso completo</p>
+            <p className="text-sm text-neutral-500 mt-1">{subtitle(p)}</p>
             <button
               onClick={() => choose(p.id)}
               disabled={pending !== null}

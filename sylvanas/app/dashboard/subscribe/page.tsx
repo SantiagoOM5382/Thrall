@@ -1,6 +1,7 @@
 import { getSubscription } from "@/lib/subscription-server"
 import { apiFetch } from "@/lib/api"
-import { PlanCards } from "./PlanCards"
+import { ProductCards } from "@/components/shared/ProductCards"
+import { createCheckout } from "./actions"
 
 type Product = {
   id: string
@@ -44,7 +45,11 @@ export default async function SubscribePage() {
         <h1 className="text-2xl font-semibold mb-4">
           {isPaid ? "Renovar o cambiar plan" : "Elige tu plan"}
         </h1>
-        <PlanCards products={products} />
+        <ProductCards
+          products={products}
+          purchaseAction={createCheckout}
+          subtitle={(p) => `${p.durationDays} días de acceso completo`}
+        />
       </section>
     </div>
   )

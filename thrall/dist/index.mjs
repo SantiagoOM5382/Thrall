@@ -72037,6 +72037,14 @@ function computeNewPaidUntil(current, product, now = Date.now()) {
 // src/routes/brand.ts
 var brandRoutes = new Hono2();
 brandRoutes.use("*", authMiddleware);
+async function resolveTokenDiscountPercent(brandId) {
+  const latest = await db.select({ tokenDiscountPercent: products.tokenDiscountPercent }).from(purchases).innerJoin(products, eq(products.id, purchases.productId)).where(and(
+    eq(purchases.brandId, brandId),
+    eq(purchases.status, "APPROVED"),
+    eq(products.type, "SUBSCRIPTION")
+  )).orderBy(desc(purchases.createdAt)).limit(1);
+  return latest[0]?.tokenDiscountPercent ?? 0;
+}
 brandRoutes.get("/subscription", async (c) => {
   const user = c.get("user");
   const { sub, isPaidEffective } = await loadBrandAccess(user.brandId);
@@ -72115,6 +72123,22 @@ brandRoutes.get("/purchases/latest", async (c) => {
     createdAt: purchases.createdAt
   }).from(purchases).innerJoin(products, eq(products.id, purchases.productId)).where(eq(purchases.brandId, user.brandId)).orderBy(desc(purchases.createdAt)).limit(1);
   return c.json({ latest: row[0] ?? null });
+});
+brandRoutes.get("/wallet", async (c) => {
+  const user = c.get("user");
+  const wallet = await db.query.brandWallets.findFirst({ where: eq(brandWallets.brandId, user.brandId) });
+  const tokenDiscountPercent = await resolveTokenDiscountPercent(user.brandId);
+  return c.json({ tokensBalance: wallet?.tokensBalance ?? 0, tokenDiscountPercent });
+});
+brandRoutes.get("/wallet/transactions", async (c) => {
+  const user = c.get("user");
+  const limitParam = Number(c.req.query("limit") ?? "20");
+  const limit = Number.isFinite(limitParam) ? Math.min(Math.max(limitParam, 1), 100) : 20;
+  const beforeParam = c.req.query("before");
+  const conditions = [eq(walletTransactions.brandId, user.brandId)];
+  if (beforeParam) conditions.push(lt(walletTransactions.createdAt, Number(beforeParam)));
+  const rows = await db.select().from(walletTransactions).where(and(...conditions)).orderBy(desc(walletTransactions.createdAt)).limit(limit);
+  return c.json({ transactions: rows });
 });
 
 // src/routes/products.ts

@@ -102,6 +102,55 @@ brandRoutes.post('/subscribe', zValidator('json', subscribeSchema), async (c) =>
   return c.json({ checkoutUrl })
 })
 
+const purchaseTokensSchema = z.object({ productId: z.string().min(1) })
+
+brandRoutes.post('/purchase-tokens', zValidator('json', purchaseTokensSchema), async (c) => {
+  const user = c.get('user')
+  const { productId } = c.req.valid('json')
+
+  const product = await db.query.products.findFirst({
+    where: and(eq(products.id, productId), eq(products.isActive, 1)),
+  })
+  if (!product || product.type !== 'TOKEN_PACK' || product.tokensGranted == null) {
+    return c.json({ error: 'invalid_product' }, 400)
+  }
+
+  const pub = process.env.WOMPI_PUBLIC_KEY
+  const integrity = process.env.WOMPI_INTEGRITY_SECRET
+  const sylvanas = process.env.SYLVANAS_URL
+  if (!pub || !integrity || !sylvanas) {
+    return c.json({ error: 'wompi_not_configured' }, 500)
+  }
+
+  const discountPercent = await resolveTokenDiscountPercent(user.brandId)
+  const amountCop = applyDiscount(product.priceCop, discountPercent)
+
+  const reference = newId()
+  const now = Date.now()
+  await db.insert(purchases).values({
+    id: newId(),
+    brandId: user.brandId,
+    productId: product.id,
+    userId: user.sub,
+    amountCop,
+    status: 'PENDING',
+    wompiReference: reference,
+    createdAt: now,
+    updatedAt: now,
+  })
+
+  const checkoutUrl = buildCheckoutUrl({
+    publicKey: pub,
+    integritySecret: integrity,
+    reference,
+    amountInCents: amountCop * 100,
+    currency: 'COP',
+    redirectUrl: `${sylvanas}/dashboard/subscribe/success`,
+  })
+
+  return c.json({ checkoutUrl })
+})
+
 brandRoutes.get('/purchases/latest', async (c) => {
   const user = c.get('user')
   const row = await db

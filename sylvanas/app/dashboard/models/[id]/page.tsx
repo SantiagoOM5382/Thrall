@@ -5,6 +5,7 @@ import type { Model, User } from "@/lib/types"
 import { ImageUploader } from "./image-uploader"
 import { DeleteImageButton } from "./delete-image-button"
 import { ProfileEditForm } from "./profile-edit-form"
+import { BoostButton } from "./boost-button"
 
 export const dynamic = "force-dynamic"
 
@@ -34,6 +35,7 @@ export default async function ModelDetailPage({
   }
 
   const images = await getModelImages(id)
+  const topServices = await apiFetch<{ id: string; code: string; displayName: string; tokensCost: number; durationHours: number }[]>("/top-services").catch(() => [])
 
   return (
     <div className="space-y-8">
@@ -42,6 +44,9 @@ export default async function ModelDetailPage({
           ← Volver a modelos
         </Link>
         <h1 className="mt-2 text-2xl font-semibold tracking-tight">{user.name}</h1>
+        <div className="mt-3">
+          <BoostButton modelId={id} services={topServices} />
+        </div>
       </div>
 
       <section className="space-y-4">

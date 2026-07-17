@@ -61,3 +61,19 @@ export async function deleteModelImage(
   revalidatePath(`/dashboard/models/${userId}`)
   return {}
 }
+
+export async function boostModel(
+  modelId: string,
+  topServiceId: string
+): Promise<{ error?: string; tokensBalance?: number; endsAt?: number }> {
+  try {
+    const res = await apiFetch<{ tokensBalance: number; boost: { endsAt: number } }>(
+      `/models/${modelId}/boost`,
+      { method: "POST", body: JSON.stringify({ topServiceId }) },
+    )
+    revalidatePath(`/dashboard/models/${modelId}`)
+    return { tokensBalance: res.tokensBalance, endsAt: res.boost.endsAt }
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : "No se pudo aplicar el boost" }
+  }
+}

@@ -2,6 +2,7 @@
 
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
+import { homeRouteForRole } from "@/lib/routes"
 
 const COOKIE_NAME = "arthas_token"
 
@@ -38,8 +39,7 @@ export async function login(
       path: "/",
     })
 
-    redirectTo =
-      user.role === "model" ? "/dashboard/profile" : "/dashboard/services"
+    redirectTo = homeRouteForRole(user.role)
   } catch {
     return { error: "No se pudo conectar con el servidor" }
   }
@@ -87,10 +87,7 @@ export async function signup(
       path: "/",
     })
 
-    return {
-      redirectTo:
-        user.role === "model" ? "/dashboard/profile" : "/dashboard/services",
-    }
+    return { redirectTo: homeRouteForRole(user.role) }
   } catch {
     return { error: "No se pudo conectar con el servidor" }
   }

@@ -71687,8 +71687,10 @@ function calcEarnings(basePrice, extraAmounts) {
 var reportsRoutes = new Hono2();
 reportsRoutes.use("*", authMiddleware, requirePaid);
 reportsRoutes.get("/ranking", requireRole("admin", "monitor"), async (c) => {
-  const all = await db.query.services.findMany({
-    where: (s, { isNull: isNull4 }) => isNull4(s.deletedAt)
+  const caller = c.get("user");
+  const brandModelIds = await modelIdsForBrand(caller.brandId);
+  const all = brandModelIds.length === 0 ? [] : await db.query.services.findMany({
+    where: (s, { and: and3, isNull: isNull4, inArray: inArray2 }) => and3(inArray2(s.modelId, brandModelIds), isNull4(s.deletedAt))
   });
   const countByModel = {};
   for (const s of all) {
@@ -71713,10 +71715,12 @@ reportsRoutes.get("/ranking", requireRole("admin", "monitor"), async (c) => {
   return c.json(ranked);
 });
 reportsRoutes.get("/earnings", requireRole("admin"), async (c) => {
+  const caller = c.get("user");
   const from = Number(c.req.query("from") ?? 0);
   const to = Number(c.req.query("to") ?? Date.now());
-  const allServices = await db.query.services.findMany({
-    where: (s, { and: and3, between: between3, isNull: isNull4 }) => and3(between3(s.startTime, from, to), isNull4(s.deletedAt))
+  const brandModelIds = await modelIdsForBrand(caller.brandId);
+  const allServices = brandModelIds.length === 0 ? [] : await db.query.services.findMany({
+    where: (s, { and: and3, between: between3, isNull: isNull4, inArray: inArray2 }) => and3(inArray2(s.modelId, brandModelIds), between3(s.startTime, from, to), isNull4(s.deletedAt))
   });
   let totalBase = 0;
   let companyEarnings = 0;
@@ -71742,9 +71746,12 @@ reportsRoutes.get("/earnings", requireRole("admin"), async (c) => {
   });
 });
 reportsRoutes.get("/model-earnings/:id", requireRole("admin"), async (c) => {
+  const caller = c.get("user");
   const modelId = c.req.param("id");
   const from = Number(c.req.query("from") ?? 0);
   const to = Number(c.req.query("to") ?? Date.now());
+  const model = await findModelInBrand(modelId, caller.brandId);
+  if (!model) return c.json({ error: "Model not found" }, 404);
   const modelServices = await db.query.services.findMany({
     where: (s, { and: and3, eq: eqFn, between: between3, isNull: isNull4 }) => and3(eqFn(s.modelId, modelId), between3(s.startTime, from, to), isNull4(s.deletedAt)),
     orderBy: (s, { desc: desc2 }) => [desc2(s.startTime)]
@@ -71777,7 +71784,10 @@ reportsRoutes.get("/model-earnings/:id", requireRole("admin"), async (c) => {
   return c.json({ rows, totals });
 });
 reportsRoutes.get("/model-balance/:id", requireRole("admin"), async (c) => {
+  const caller = c.get("user");
   const modelId = c.req.param("id");
+  const model = await findModelInBrand(modelId, caller.brandId);
+  if (!model) return c.json({ error: "Model not found" }, 404);
   const modelServices = await db.query.services.findMany({
     where: (s, { and: and3, eq: eqFn, isNull: isNull4 }) => and3(eqFn(s.modelId, modelId), isNull4(s.deletedAt))
   });
@@ -71843,9 +71853,11 @@ reportsRoutes.get("/brand-earnings", requireRole("dev"), async (c) => {
   return c.json({ rows, totals });
 });
 reportsRoutes.get("/daily", requireRole("admin", "monitor"), async (c) => {
+  const caller = c.get("user");
   const { start, end } = getTodayRangeInBogota();
-  const todayServices = await db.query.services.findMany({
-    where: (s, { and: and3, between: between3, isNull: isNull4 }) => and3(between3(s.startTime, start, end), isNull4(s.deletedAt))
+  const brandModelIds = await modelIdsForBrand(caller.brandId);
+  const todayServices = brandModelIds.length === 0 ? [] : await db.query.services.findMany({
+    where: (s, { and: and3, between: between3, isNull: isNull4, inArray: inArray2 }) => and3(inArray2(s.modelId, brandModelIds), between3(s.startTime, start, end), isNull4(s.deletedAt))
   });
   let totalBase = 0;
   let companyEarnings = 0;
@@ -72305,6 +72317,23 @@ brandRoutes.get("/purchases/latest", async (c) => {
     createdAt: purchases.createdAt
   }).from(purchases).innerJoin(products, eq(products.id, purchases.productId)).where(eq(purchases.brandId, user.brandId)).orderBy(desc(purchases.createdAt)).limit(1);
   return c.json({ latest: row[0] ?? null });
+});
+brandRoutes.get("/models", async (c) => {
+  const user = c.get("user");
+  const models = await db.query.users.findMany({
+    where: and(eq(users.brandId, user.brandId), eq(users.role, "model"), eq(users.isActive, 1))
+  });
+  const result = await Promise.all(
+    models.map(async (m) => {
+      const images = await db.query.userImages.findMany({
+        where: (img, { and: andFn, eq: eqFn, isNull: isNull4 }) => andFn(eqFn(img.userId, m.id), eqFn(img.isActive, 1), isNull4(img.deletedAt)),
+        orderBy: (img, { asc: asc2 }) => [asc2(img.sortOrder)]
+      });
+      const { password: _, ...model } = m;
+      return { ...model, images: images.map((i) => ({ id: i.id, url: i.url, sortOrder: i.sortOrder })) };
+    })
+  );
+  return c.json(result);
 });
 brandRoutes.get("/wallet", async (c) => {
   const user = c.get("user");

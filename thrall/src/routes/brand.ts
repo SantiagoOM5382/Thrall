@@ -3,7 +3,7 @@ import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
 import { and, desc, eq, lt } from 'drizzle-orm'
 import { db } from '../db/client'
-import { products, purchases, brandWallets, walletTransactions } from '../db/schema'
+import { products, purchases, brandWallets, walletTransactions, users } from '../db/schema'
 import { authMiddleware, type AppEnv } from '../middleware/auth'
 import { loadBrandAccess } from '../middleware/requirePaid'
 import { newId } from '../lib/ulid'
@@ -169,6 +169,27 @@ brandRoutes.get('/purchases/latest', async (c) => {
     .orderBy(desc(purchases.createdAt))
     .limit(1)
   return c.json({ latest: row[0] ?? null })
+})
+
+brandRoutes.get('/models', async (c) => {
+  const user = c.get('user')
+  const models = await db.query.users.findMany({
+    where: and(eq(users.brandId, user.brandId), eq(users.role, 'model'), eq(users.isActive, 1)),
+  })
+
+  const result = await Promise.all(
+    models.map(async (m) => {
+      const images = await db.query.userImages.findMany({
+        where: (img, { and: andFn, eq: eqFn, isNull }) =>
+          andFn(eqFn(img.userId, m.id), eqFn(img.isActive, 1), isNull(img.deletedAt)),
+        orderBy: (img, { asc }) => [asc(img.sortOrder)],
+      })
+      const { password: _, ...model } = m
+      return { ...model, images: images.map((i) => ({ id: i.id, url: i.url, sortOrder: i.sortOrder })) }
+    })
+  )
+
+  return c.json(result)
 })
 
 brandRoutes.get('/wallet', async (c) => {

@@ -34,3 +34,29 @@ describe('GET /api/brand/subscription', () => {
     expect(body.daysLeft).toBeNull()
   })
 })
+
+describe('GET /api/brand/models', () => {
+  it('only returns models belonging to the caller\'s brand', async () => {
+    const brand = await createTestBrand()
+    const admin = await createTestUser(brand, { role: 'admin' })
+    const token = await tokenFor(admin.id, 'admin', brand)
+    const ownModel = await createTestUser(brand, { role: 'model', name: 'Mío', email: `own-${Date.now()}@t.com` })
+
+    const otherBrand = await createTestBrand()
+    await createTestUser(otherBrand, { role: 'model', name: 'Ajeno', email: `other-${Date.now()}@t.com` })
+
+    const res = await app.request('/api/brand/models', {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    expect(res.status).toBe(200)
+    const body = await res.json() as any[]
+    expect(body).toHaveLength(1)
+    expect(body[0].id).toBe(ownModel.id)
+    expect(body[0].password).toBeUndefined()
+  })
+
+  it('rejects unauthenticated request with 401', async () => {
+    const res = await app.request('/api/brand/models')
+    expect(res.status).toBe(401)
+  })
+})

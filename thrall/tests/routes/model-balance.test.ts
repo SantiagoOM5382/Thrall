@@ -54,4 +54,18 @@ describe('model-balance report', () => {
     })
     expect(res.status).toBe(403)
   })
+
+  it('rejects a model from another brand with 404', async () => {
+    const brandId = await createTestBrand()
+    const admin = await createTestUser(brandId, { role: 'admin' })
+    const adminToken = await tokenFor(admin.id, 'admin', brandId)
+
+    const otherBrand = await createTestBrand()
+    const otherModel = await createTestUser(otherBrand, { role: 'model' })
+
+    const res = await app.request(`/api/reports/model-balance/${otherModel.id}`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    })
+    expect(res.status).toBe(404)
+  })
 })

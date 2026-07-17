@@ -7,13 +7,16 @@ import { requirePaid } from '../middleware/requirePaid'
 import { requireRole } from '../middleware/rbac'
 import { calcEarnings } from '../lib/earnings'
 import { getTodayRangeInBogota } from '../lib/timezone'
+import { findModelInBrand, modelIdsForBrand } from '../lib/brand-scope'
 
 export const reportsRoutes = new Hono<AppEnv>()
 reportsRoutes.use('*', authMiddleware, requirePaid)
 
 reportsRoutes.get('/ranking', requireRole('admin', 'monitor'), async (c) => {
-  const all = await db.query.services.findMany({
-    where: (s, { isNull }) => isNull(s.deletedAt),
+  const caller = c.get('user')
+  const brandModelIds = await modelIdsForBrand(caller.brandId)
+  const all = brandModelIds.length === 0 ? [] : await db.query.services.findMany({
+    where: (s, { and, isNull, inArray }) => and(inArray(s.modelId, brandModelIds), isNull(s.deletedAt)),
   })
 
   const countByModel: Record<string, { modelId: string; count: number; totalBase: number }> = {}
@@ -44,12 +47,14 @@ reportsRoutes.get('/ranking', requireRole('admin', 'monitor'), async (c) => {
 })
 
 reportsRoutes.get('/earnings', requireRole('admin'), async (c) => {
+  const caller = c.get('user')
   const from = Number(c.req.query('from') ?? 0)
   const to = Number(c.req.query('to') ?? Date.now())
 
-  const allServices = await db.query.services.findMany({
-    where: (s, { and, between, isNull }) =>
-      and(between(s.startTime, from, to), isNull(s.deletedAt)),
+  const brandModelIds = await modelIdsForBrand(caller.brandId)
+  const allServices = brandModelIds.length === 0 ? [] : await db.query.services.findMany({
+    where: (s, { and, between, isNull, inArray }) =>
+      and(inArray(s.modelId, brandModelIds), between(s.startTime, from, to), isNull(s.deletedAt)),
   })
 
   let totalBase = 0
@@ -79,9 +84,13 @@ reportsRoutes.get('/earnings', requireRole('admin'), async (c) => {
 })
 
 reportsRoutes.get('/model-earnings/:id', requireRole('admin'), async (c) => {
+  const caller = c.get('user')
   const modelId = c.req.param('id')!
   const from = Number(c.req.query('from') ?? 0)
   const to = Number(c.req.query('to') ?? Date.now())
+
+  const model = await findModelInBrand(modelId, caller.brandId)
+  if (!model) return c.json({ error: 'Model not found' }, 404)
 
   const modelServices = await db.query.services.findMany({
     where: (s, { and, eq: eqFn, between, isNull }) =>
@@ -120,7 +129,11 @@ reportsRoutes.get('/model-earnings/:id', requireRole('admin'), async (c) => {
 })
 
 reportsRoutes.get('/model-balance/:id', requireRole('admin'), async (c) => {
+  const caller = c.get('user')
   const modelId = c.req.param('id')!
+
+  const model = await findModelInBrand(modelId, caller.brandId)
+  if (!model) return c.json({ error: 'Model not found' }, 404)
 
   const modelServices = await db.query.services.findMany({
     where: (s, { and, eq: eqFn, isNull }) => and(eqFn(s.modelId, modelId), isNull(s.deletedAt)),
@@ -198,11 +211,13 @@ reportsRoutes.get('/brand-earnings', requireRole('dev'), async (c) => {
 })
 
 reportsRoutes.get('/daily', requireRole('admin', 'monitor'), async (c) => {
+  const caller = c.get('user')
   const { start, end } = getTodayRangeInBogota()
 
-  const todayServices = await db.query.services.findMany({
-    where: (s, { and, between, isNull }) =>
-      and(between(s.startTime, start, end), isNull(s.deletedAt)),
+  const brandModelIds = await modelIdsForBrand(caller.brandId)
+  const todayServices = brandModelIds.length === 0 ? [] : await db.query.services.findMany({
+    where: (s, { and, between, isNull, inArray }) =>
+      and(inArray(s.modelId, brandModelIds), between(s.startTime, start, end), isNull(s.deletedAt)),
   })
 
   let totalBase = 0

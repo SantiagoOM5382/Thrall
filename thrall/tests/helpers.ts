@@ -54,11 +54,12 @@ export async function tokenFor(userId: string, role: 'admin' | 'monitor' | 'mode
   return signToken({ sub: userId, role, brandId, name: 'Test' })
 }
 
-export async function createTestPayMethod() {
+export async function createTestPayMethod(brandId: string) {
   const id = newId()
   await db.insert(payMethods).values({
     id,
-    code: `PM${Date.now()}`,
+    brandId,
+    code: `PM${newId()}`,
     displayName: 'Nequi Santiago',
     isActive: 1,
     createdAt: Date.now(),

@@ -3,13 +3,14 @@ import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
 import { eq } from 'drizzle-orm'
 import { db } from '../db/client'
-import { fines, users } from '../db/schema'
+import { fines } from '../db/schema'
 import { authMiddleware, type AppEnv } from '../middleware/auth'
 import { requirePaid } from '../middleware/requirePaid'
 import { requireRole } from '../middleware/rbac'
 import { newId } from '../lib/ulid'
 import { logAudit } from '../lib/audit'
 import { getTodayRangeInBogota } from '../lib/timezone'
+import { findModelInBrand, modelIdsForBrand } from '../lib/brand-scope'
 
 export const finesRoutes = new Hono<AppEnv>()
 finesRoutes.use('*', authMiddleware, requirePaid)
@@ -22,9 +23,11 @@ const createSchema = z.object({
 
 finesRoutes.get('/', async (c) => {
   const caller = c.get('user')
+  const brandModelIds = await modelIdsForBrand(caller.brandId)
 
   if (caller.role === 'admin') {
-    const all = await db.query.fines.findMany({
+    const all = brandModelIds.length === 0 ? [] : await db.query.fines.findMany({
+      where: (f, { inArray: inArrayFn }) => inArrayFn(f.modelId, brandModelIds),
       orderBy: (f, { desc }) => [desc(f.createdAt)],
     })
     return c.json(all)
@@ -32,9 +35,9 @@ finesRoutes.get('/', async (c) => {
 
   const { start, end } = getTodayRangeInBogota()
   if (caller.role === 'monitor') {
-    const today = await db.query.fines.findMany({
-      where: (f, { and, between, isNull }) =>
-        and(between(f.createdAt, start, end), isNull(f.deletedAt)),
+    const today = brandModelIds.length === 0 ? [] : await db.query.fines.findMany({
+      where: (f, { and, between, isNull, inArray: inArrayFn }) =>
+        and(inArrayFn(f.modelId, brandModelIds), between(f.createdAt, start, end), isNull(f.deletedAt)),
       orderBy: (f, { desc }) => [desc(f.createdAt)],
     })
     return c.json(today)
@@ -53,10 +56,7 @@ finesRoutes.post('/', requireRole('admin', 'monitor'), zValidator('json', create
   const caller = c.get('user')
   const data = c.req.valid('json')
 
-  const model = await db.query.users.findFirst({
-    where: (u, { and, eq: eqFn, isNull }) =>
-      and(eqFn(u.id, data.modelId), eqFn(u.role, 'model'), isNull(u.deletedAt)),
-  })
+  const model = await findModelInBrand(data.modelId, caller.brandId)
   if (!model) return c.json({ error: 'Model not found' }, 404)
 
   const id = newId()
@@ -83,6 +83,9 @@ finesRoutes.put('/:id', requireRole('admin'), zValidator('json', amountSchema), 
   })
   if (!existing) return c.json({ error: 'Not found' }, 404)
 
+  const ownerModel = await findModelInBrand(existing.modelId, caller.brandId)
+  if (!ownerModel) return c.json({ error: 'Not found' }, 404)
+
   await db.update(fines).set({ amount }).where(eq(fines.id, id))
   await logAudit(db, { userId: caller.sub, action: 'UPDATE', entity: 'fine', entityId: id })
   const updated = await db.query.fines.findFirst({ where: eq(fines.id, id) })
@@ -97,6 +100,9 @@ finesRoutes.delete('/:id', requireRole('admin'), async (c) => {
     where: (f, { and, eq: eqFn, isNull }) => and(eqFn(f.id, id), isNull(f.deletedAt)),
   })
   if (!existing) return c.json({ error: 'Not found' }, 404)
+
+  const ownerModel = await findModelInBrand(existing.modelId, caller.brandId)
+  if (!ownerModel) return c.json({ error: 'Not found' }, 404)
 
   await db.update(fines).set({ deletedAt: Date.now() }).where(eq(fines.id, id))
   await logAudit(db, { userId: caller.sub, action: 'DELETE', entity: 'fine', entityId: id })

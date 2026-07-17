@@ -10,6 +10,7 @@ import { requireRole } from '../middleware/rbac'
 import { newId } from '../lib/ulid'
 import { logAudit } from '../lib/audit'
 import { getTodayRangeInBogota } from '../lib/timezone'
+import { findModelInBrand, modelIdsForBrand } from '../lib/brand-scope'
 
 export const loansRoutes = new Hono<AppEnv>()
 loansRoutes.use('*', authMiddleware, requirePaid)
@@ -22,9 +23,11 @@ const createSchema = z.object({
 
 loansRoutes.get('/', async (c) => {
   const caller = c.get('user')
+  const brandModelIds = await modelIdsForBrand(caller.brandId)
 
   if (caller.role === 'admin') {
-    const all = await db.query.loans.findMany({
+    const all = brandModelIds.length === 0 ? [] : await db.query.loans.findMany({
+      where: (l, { inArray: inArrayFn }) => inArrayFn(l.modelId, brandModelIds),
       orderBy: (l, { desc }) => [desc(l.createdAt)],
     })
     return c.json(all)
@@ -32,9 +35,9 @@ loansRoutes.get('/', async (c) => {
 
   const { start, end } = getTodayRangeInBogota()
   if (caller.role === 'monitor') {
-    const today = await db.query.loans.findMany({
-      where: (l, { and, between, isNull }) =>
-        and(between(l.createdAt, start, end), isNull(l.deletedAt)),
+    const today = brandModelIds.length === 0 ? [] : await db.query.loans.findMany({
+      where: (l, { and, between, isNull, inArray: inArrayFn }) =>
+        and(inArrayFn(l.modelId, brandModelIds), between(l.createdAt, start, end), isNull(l.deletedAt)),
       orderBy: (l, { desc }) => [desc(l.createdAt)],
     })
     return c.json(today)
@@ -52,10 +55,7 @@ loansRoutes.post('/', requireRole('admin', 'monitor'), zValidator('json', create
   const caller = c.get('user')
   const data = c.req.valid('json')
 
-  const model = await db.query.users.findFirst({
-    where: (u, { and, eq: eqFn, isNull }) =>
-      and(eqFn(u.id, data.modelId), eqFn(u.role, 'model'), isNull(u.deletedAt)),
-  })
+  const model = await findModelInBrand(data.modelId, caller.brandId)
   if (!model) return c.json({ error: 'Model not found' }, 404)
 
   const id = newId()
@@ -82,6 +82,9 @@ loansRoutes.put('/:id', requireRole('admin', 'monitor'), zValidator('json', amou
   })
   if (!existing) return c.json({ error: 'Not found' }, 404)
 
+  const ownerModel = await findModelInBrand(existing.modelId, caller.brandId)
+  if (!ownerModel) return c.json({ error: 'Not found' }, 404)
+
   await db.update(loans).set({ amount }).where(eq(loans.id, id))
   await logAudit(db, { userId: caller.sub, action: 'UPDATE', entity: 'loan', entityId: id })
   const updated = await db.query.loans.findFirst({ where: eq(loans.id, id) })
@@ -96,6 +99,9 @@ loansRoutes.delete('/:id', requireRole('admin', 'monitor'), async (c) => {
     where: (l, { and, eq: eqFn, isNull }) => and(eqFn(l.id, id), isNull(l.deletedAt)),
   })
   if (!existing) return c.json({ error: 'Not found' }, 404)
+
+  const ownerModel = await findModelInBrand(existing.modelId, caller.brandId)
+  if (!ownerModel) return c.json({ error: 'Not found' }, 404)
 
   await db.update(loans).set({ deletedAt: Date.now() }).where(eq(loans.id, id))
   await logAudit(db, { userId: caller.sub, action: 'DELETE', entity: 'loan', entityId: id })

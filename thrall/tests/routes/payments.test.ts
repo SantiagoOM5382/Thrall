@@ -11,7 +11,7 @@ async function setup() {
     adminToken: await tokenFor(admin.id, 'admin', brandId),
     monitorToken: await tokenFor(monitor.id, 'monitor', brandId),
     modelId: model.id,
-    payMethodId: await createTestPayMethod(),
+    payMethodId: await createTestPayMethod(brandId),
   }
 }
 
@@ -49,5 +49,36 @@ describe('payments routes', () => {
     })
     expect(res.status).toBe(200)
     expect((await res.json())).toHaveLength(1)
+  })
+
+  it('rejects creating a payment for another brand\'s model with 404', async () => {
+    const { adminToken, payMethodId } = await setup()
+    const other = await setup()
+    const res = await app.request('/api/payments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify({ modelId: other.modelId, amount: 1000, payMethodId }),
+    })
+    expect(res.status).toBe(404)
+  })
+
+  it('rejects creating a payment with another brand\'s payMethodId with 400', async () => {
+    const { adminToken, modelId } = await setup()
+    const other = await setup()
+    const res = await app.request('/api/payments', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify({ modelId, amount: 1000, payMethodId: other.payMethodId }),
+    })
+    expect(res.status).toBe(400)
+  })
+
+  it('rejects listing payments for another brand\'s model with 404', async () => {
+    const { adminToken } = await setup()
+    const other = await setup()
+    const res = await app.request(`/api/payments?modelId=${other.modelId}`, {
+      headers: { Authorization: `Bearer ${adminToken}` },
+    })
+    expect(res.status).toBe(404)
   })
 })

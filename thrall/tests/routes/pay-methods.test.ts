@@ -72,3 +72,81 @@ describe('GET /api/pay-methods', () => {
     expect(body[0]).toHaveProperty('code')
   })
 })
+
+describe('brand isolation', () => {
+  it('a brand does not see another brand\'s pay methods', async () => {
+    await app.request('/api/pay-methods', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: 'ONLYMINE', displayName: 'Solo mío' }),
+    })
+
+    const otherBrand = await createTestBrand()
+    const otherAdmin = await createTestUser(otherBrand, { role: 'admin', email: `other-pm-${Date.now()}@test.com` })
+    const otherToken = await tokenFor(otherAdmin.id, 'admin', otherBrand)
+
+    const res = await app.request('/api/pay-methods', {
+      headers: { Authorization: `Bearer ${otherToken}` },
+    })
+    const body = await res.json() as any[]
+    expect(body.some((pm: any) => pm.code === 'ONLYMINE')).toBe(false)
+  })
+
+  it('two different brands can each use the same code', async () => {
+    const resA = await app.request('/api/pay-methods', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: 'SHARED', displayName: 'Brand A method' }),
+    })
+    expect(resA.status).toBe(201)
+
+    const otherBrand = await createTestBrand()
+    const otherAdmin = await createTestUser(otherBrand, { role: 'admin', email: `other-shared-${Date.now()}@test.com` })
+    const otherToken = await tokenFor(otherAdmin.id, 'admin', otherBrand)
+    const resB = await app.request('/api/pay-methods', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${otherToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: 'SHARED', displayName: 'Brand B method' }),
+    })
+    expect(resB.status).toBe(201)
+  })
+
+  it('cannot update another brand\'s pay method (404)', async () => {
+    const created = await app.request('/api/pay-methods', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: 'MINE', displayName: 'Mine' }),
+    })
+    const { id } = await created.json()
+
+    const otherBrand = await createTestBrand()
+    const otherAdmin = await createTestUser(otherBrand, { role: 'admin', email: `other-upd-${Date.now()}@test.com` })
+    const otherToken = await tokenFor(otherAdmin.id, 'admin', otherBrand)
+
+    const res = await app.request(`/api/pay-methods/${id}`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${otherToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ displayName: 'Hijacked' }),
+    })
+    expect(res.status).toBe(404)
+  })
+
+  it('cannot delete another brand\'s pay method (404)', async () => {
+    const created = await app.request('/api/pay-methods', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: 'MINE2', displayName: 'Mine 2' }),
+    })
+    const { id } = await created.json()
+
+    const otherBrand = await createTestBrand()
+    const otherAdmin = await createTestUser(otherBrand, { role: 'admin', email: `other-del-${Date.now()}@test.com` })
+    const otherToken = await tokenFor(otherAdmin.id, 'admin', otherBrand)
+
+    const res = await app.request(`/api/pay-methods/${id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${otherToken}` },
+    })
+    expect(res.status).toBe(404)
+  })
+})

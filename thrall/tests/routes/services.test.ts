@@ -24,7 +24,7 @@ beforeEach(async () => {
   adminToken = await tokenFor(adminId, 'admin', brandId)
   monitorToken = await tokenFor(monitorId, 'monitor', brandId)
   modelToken = await tokenFor(modelId, 'model', brandId)
-  payMethodId = await createTestPayMethod()
+  payMethodId = await createTestPayMethod(brandId)
 })
 
 describe('POST /api/services', () => {
@@ -133,5 +133,88 @@ describe('GET /api/services', () => {
     })
     const body = await res.json() as any[]
     expect(body.every((s: any) => s.modelId === modelId)).toBe(true)
+  })
+})
+
+describe('brand isolation', () => {
+  it('admin does not see another brand\'s services', async () => {
+    await createTestService(modelId, adminId, payMethodId)
+
+    const otherBrand = await createTestBrand()
+    const otherAdmin = await createTestUser(otherBrand, { role: 'admin', email: `other-adm-${Date.now()}@t.com` })
+    const otherToken = await tokenFor(otherAdmin.id, 'admin', otherBrand)
+
+    const res = await app.request('/api/services', {
+      headers: { Authorization: `Bearer ${otherToken}` },
+    })
+    const body = await res.json() as any[]
+    expect(body).toHaveLength(0)
+  })
+
+  it('rejects creating a service for another brand\'s model with 404', async () => {
+    const otherBrand = await createTestBrand()
+    const otherModel = await createTestUser(otherBrand, { role: 'model', email: `other-mod-${Date.now()}@t.com` })
+
+    const now = Date.now()
+    const res = await app.request('/api/services', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        modelId: otherModel.id, startTime: now - 3600000, endTime: now, basePrice: 100000, payMethodId,
+      }),
+    })
+    expect(res.status).toBe(404)
+  })
+
+  it('rejects creating a service with another brand\'s payMethodId with 400', async () => {
+    const otherBrand = await createTestBrand()
+    const otherPayMethod = await createTestPayMethod(otherBrand)
+
+    const now = Date.now()
+    const res = await app.request('/api/services', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        modelId, startTime: now - 3600000, endTime: now, basePrice: 100000, payMethodId: otherPayMethod,
+      }),
+    })
+    expect(res.status).toBe(400)
+  })
+
+  it('rejects updating another brand\'s service with 404', async () => {
+    const otherBrand = await createTestBrand()
+    const otherAdmin = await createTestUser(otherBrand, { role: 'admin', email: `other-upd-${Date.now()}@t.com` })
+    const otherModel = await createTestUser(otherBrand, { role: 'model', email: `other-mod2-${Date.now()}@t.com` })
+    const otherPayMethod = await createTestPayMethod(otherBrand)
+    const otherToken = await tokenFor(otherAdmin.id, 'admin', otherBrand)
+    const serviceId = await createTestService(otherModel.id, otherAdmin.id, otherPayMethod)
+
+    const res = await app.request(`/api/services/${serviceId}`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ basePrice: 1 }),
+    })
+    expect(res.status).toBe(404)
+    // sanity: the other brand's own admin CAN still update it
+    const okRes = await app.request(`/api/services/${serviceId}`, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${otherToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ basePrice: 1 }),
+    })
+    expect(okRes.status).toBe(200)
+  })
+
+  it('rejects deleting another brand\'s service with 404', async () => {
+    const otherBrand = await createTestBrand()
+    const otherAdmin = await createTestUser(otherBrand, { role: 'admin', email: `other-del-${Date.now()}@t.com` })
+    const otherModel = await createTestUser(otherBrand, { role: 'model', email: `other-mod3-${Date.now()}@t.com` })
+    const otherPayMethod = await createTestPayMethod(otherBrand)
+    const serviceId = await createTestService(otherModel.id, otherAdmin.id, otherPayMethod)
+
+    const res = await app.request(`/api/services/${serviceId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${adminToken}` },
+    })
+    expect(res.status).toBe(404)
   })
 })

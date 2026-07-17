@@ -10,7 +10,7 @@ describe('model-balance report', () => {
     const admin = await createTestUser(brandId, { role: 'admin' })
     const model = await createTestUser(brandId, { role: 'model' })
     const adminToken = await tokenFor(admin.id, 'admin', brandId)
-    const payMethodId = await createTestPayMethod()
+    const payMethodId = await createTestPayMethod(brandId)
 
     // One service: basePrice 100000, extras [20000] → modelTotal = 60000 + 20000 = 80000
     await createTestService(model.id, admin.id, payMethodId, [20000])

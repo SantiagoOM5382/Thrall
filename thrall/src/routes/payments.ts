@@ -9,6 +9,7 @@ import { requirePaid } from '../middleware/requirePaid'
 import { requireRole } from '../middleware/rbac'
 import { newId } from '../lib/ulid'
 import { logAudit } from '../lib/audit'
+import { findModelInBrand, findPayMethodInBrand } from '../lib/brand-scope'
 
 export const paymentsRoutes = new Hono<AppEnv>()
 paymentsRoutes.use('*', authMiddleware, requirePaid, requireRole('admin'))
@@ -20,8 +21,13 @@ const createSchema = z.object({
 })
 
 paymentsRoutes.get('/', async (c) => {
+  const caller = c.get('user')
   const modelId = c.req.query('modelId')
   if (!modelId) return c.json({ error: 'modelId is required' }, 400)
+
+  const model = await findModelInBrand(modelId, caller.brandId)
+  if (!model) return c.json({ error: 'Model not found' }, 404)
+
   const list = await db.query.payments.findMany({
     where: (p, { eq: eqFn }) => eqFn(p.modelId, modelId),
     orderBy: (p, { desc }) => [desc(p.createdAt)],
@@ -33,11 +39,11 @@ paymentsRoutes.post('/', zValidator('json', createSchema), async (c) => {
   const caller = c.get('user')
   const data = c.req.valid('json')
 
-  const model = await db.query.users.findFirst({
-    where: (u, { and, eq: eqFn, isNull }) =>
-      and(eqFn(u.id, data.modelId), eqFn(u.role, 'model'), isNull(u.deletedAt)),
-  })
+  const model = await findModelInBrand(data.modelId, caller.brandId)
   if (!model) return c.json({ error: 'Model not found' }, 404)
+
+  const payMethod = await findPayMethodInBrand(data.payMethodId, caller.brandId)
+  if (!payMethod) return c.json({ error: 'invalid_pay_method' }, 400)
 
   const id = newId()
   await db.insert(payments).values({

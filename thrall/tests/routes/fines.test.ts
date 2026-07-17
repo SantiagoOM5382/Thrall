@@ -86,4 +86,47 @@ describe('fines routes', () => {
     })
     expect(res.status).toBe(404)
   })
+
+  it('rejects creating a fine for another brand\'s model with 404', async () => {
+    const { adminToken } = await setup()
+    const other = await setup()
+    const res = await app.request('/api/fines', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify({ modelId: other.modelId, amount: 1000, reason: 'x' }),
+    })
+    expect(res.status).toBe(404)
+  })
+
+  it('admin does not see another brand\'s fines', async () => {
+    const { adminToken, modelId } = await setup()
+    await app.request('/api/fines', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify({ modelId, amount: 1000, reason: 'x' }),
+    })
+    const other = await setup()
+    const res = await app.request('/api/fines', {
+      headers: { Authorization: `Bearer ${other.adminToken}` },
+    })
+    const body = await res.json()
+    expect(body).toHaveLength(0)
+  })
+
+  it('rejects updating another brand\'s fine with 404', async () => {
+    const { adminToken, modelId } = await setup()
+    const created = await app.request('/api/fines', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify({ modelId, amount: 1000, reason: 'x' }),
+    })
+    const { id } = await created.json()
+    const other = await setup()
+    const res = await app.request(`/api/fines/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${other.adminToken}` },
+      body: JSON.stringify({ amount: 1 }),
+    })
+    expect(res.status).toBe(404)
+  })
 })

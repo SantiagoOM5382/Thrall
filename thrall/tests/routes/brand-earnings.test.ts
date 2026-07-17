@@ -9,7 +9,7 @@ describe('brand-earnings report', () => {
     const brandA = await createTestBrand()
     const adminA = await createTestUser(brandA, { role: 'admin' })
     const modelA = await createTestUser(brandA, { role: 'model' })
-    const pm = await createTestPayMethod()
+    const pm = await createTestPayMethod(brandA)
     // one service basePrice 100000, extras [20000] → company 40000, modelTotal 80000
     await createTestService(modelA.id, adminA.id, pm, [20000])
 

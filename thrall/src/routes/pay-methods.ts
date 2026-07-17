@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
-import { eq } from 'drizzle-orm'
+import { and, eq, isNull } from 'drizzle-orm'
 import { db } from '../db/client'
 import { payMethods } from '../db/schema'
 import { authMiddleware, type AppEnv } from '../middleware/auth'
@@ -20,11 +20,11 @@ const bodySchema = z.object({
 })
 
 payMethodsRoutes.get('/', async (c) => {
-  const role = c.get('user').role
+  const caller = c.get('user')
   const all = await db.query.payMethods.findMany({
-    where: (pm, { isNull }) => isNull(pm.deletedAt),
+    where: and(eq(payMethods.brandId, caller.brandId), isNull(payMethods.deletedAt)),
   })
-  return c.json(all.map((pm) => serializePayMethod(pm, role)))
+  return c.json(all.map((pm) => serializePayMethod(pm, caller.role)))
 })
 
 payMethodsRoutes.post('/', requireRole('admin'), zValidator('json', bodySchema), async (c) => {
@@ -33,7 +33,7 @@ payMethodsRoutes.post('/', requireRole('admin'), zValidator('json', bodySchema),
   const id = newId()
   const now = Date.now()
 
-  await db.insert(payMethods).values({ id, ...data, isActive: 1, createdAt: now, updatedAt: now })
+  await db.insert(payMethods).values({ id, brandId: caller.brandId, ...data, isActive: 1, createdAt: now, updatedAt: now })
   await logAudit(db, { userId: caller.sub, action: 'CREATE', entity: 'pay_method', entityId: id })
 
   return c.json(serializePayMethod({ id, ...data, isActive: 1 }, caller.role), 201)
@@ -43,7 +43,7 @@ payMethodsRoutes.put('/:id', requireRole('admin'), zValidator('json', bodySchema
   const caller = c.get('user')
 
   const existing = await db.query.payMethods.findFirst({
-    where: (pm, { and, eq, isNull }) => and(eq(pm.id, c.req.param('id')), isNull(pm.deletedAt)),
+    where: and(eq(payMethods.id, c.req.param('id')), eq(payMethods.brandId, caller.brandId), isNull(payMethods.deletedAt)),
   })
   if (!existing) return c.json({ error: 'Not found' }, 404)
 
@@ -58,7 +58,7 @@ payMethodsRoutes.delete('/:id', requireRole('admin'), async (c) => {
   const caller = c.get('user')
 
   const existing = await db.query.payMethods.findFirst({
-    where: (pm, { and, eq, isNull }) => and(eq(pm.id, c.req.param('id')!), isNull(pm.deletedAt)),
+    where: and(eq(payMethods.id, c.req.param('id')!), eq(payMethods.brandId, caller.brandId), isNull(payMethods.deletedAt)),
   })
   if (!existing) return c.json({ error: 'Not found' }, 404)
 

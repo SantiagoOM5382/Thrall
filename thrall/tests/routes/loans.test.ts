@@ -52,4 +52,45 @@ describe('loans routes', () => {
     const res = await app.request('/api/loans', { headers: { Authorization: `Bearer ${modelToken}` } })
     expect((await res.json())).toHaveLength(1)
   })
+
+  it('rejects creating a loan for another brand\'s model with 404', async () => {
+    const { adminToken } = await setup()
+    const other = await setup()
+    const res = await app.request('/api/loans', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify({ modelId: other.modelId, amount: 1000, reason: 'x' }),
+    })
+    expect(res.status).toBe(404)
+  })
+
+  it('admin does not see another brand\'s loans', async () => {
+    const { adminToken, modelId } = await setup()
+    await app.request('/api/loans', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${adminToken}` },
+      body: JSON.stringify({ modelId, amount: 1000, reason: 'x' }),
+    })
+    const other = await setup()
+    const res = await app.request('/api/loans', {
+      headers: { Authorization: `Bearer ${other.adminToken}` },
+    })
+    expect(await res.json()).toHaveLength(0)
+  })
+
+  it('rejects deleting another brand\'s loan with 404', async () => {
+    const { monitorToken, modelId } = await setup()
+    const created = await app.request('/api/loans', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${monitorToken}` },
+      body: JSON.stringify({ modelId, amount: 1000, reason: 'x' }),
+    })
+    const { id } = await created.json()
+    const other = await setup()
+    const res = await app.request(`/api/loans/${id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${other.monitorToken}` },
+    })
+    expect(res.status).toBe(404)
+  })
 })

@@ -50,6 +50,7 @@ async function seed() {
   for (const pm of payMethodsData) {
     await db.insert(payMethods).values({
       id: newId(),
+      brandId,
       code: pm.code,
       displayName: pm.displayName,
       isActive: 1,

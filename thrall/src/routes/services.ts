@@ -9,6 +9,7 @@ import { requirePaid } from '../middleware/requirePaid'
 import { newId } from '../lib/ulid'
 import { logAudit } from '../lib/audit'
 import { getTodayRangeInBogota } from '../lib/timezone'
+import { findModelInBrand, findPayMethodInBrand, modelIdsForBrand } from '../lib/brand-scope'
 
 export const servicesRoutes = new Hono<AppEnv>()
 servicesRoutes.use('*', authMiddleware, requirePaid)
@@ -45,7 +46,9 @@ servicesRoutes.get('/', async (c) => {
   const { start, end } = getTodayRangeInBogota()
 
   if (caller.role === 'admin') {
-    const all = await db.query.services.findMany({
+    const brandModelIds = await modelIdsForBrand(caller.brandId)
+    const all = brandModelIds.length === 0 ? [] : await db.query.services.findMany({
+      where: (s, { inArray: inArrayFn }) => inArrayFn(s.modelId, brandModelIds),
       orderBy: (s, { desc }) => [desc(s.createdAt)],
     })
     const withExtras = await Promise.all(all.map((s) =>
@@ -56,9 +59,10 @@ servicesRoutes.get('/', async (c) => {
   }
 
   if (caller.role === 'monitor') {
-    const todayServices = await db.query.services.findMany({
-      where: (s, { and, between, isNull }) =>
-        and(between(s.startTime, start, end), isNull(s.deletedAt)),
+    const brandModelIds = await modelIdsForBrand(caller.brandId)
+    const todayServices = brandModelIds.length === 0 ? [] : await db.query.services.findMany({
+      where: (s, { and, between, isNull, inArray: inArrayFn }) =>
+        and(inArrayFn(s.modelId, brandModelIds), between(s.startTime, start, end), isNull(s.deletedAt)),
       orderBy: (s, { desc }) => [desc(s.startTime)],
     })
     const withExtras = await Promise.all(todayServices.map((s) =>
@@ -88,6 +92,13 @@ servicesRoutes.post('/', zValidator('json', createSchema), async (c) => {
   }
 
   const data = c.req.valid('json')
+
+  const model = await findModelInBrand(data.modelId, caller.brandId)
+  if (!model) return c.json({ error: 'Model not found' }, 404)
+
+  const payMethod = await findPayMethodInBrand(data.payMethodId, caller.brandId)
+  if (!payMethod) return c.json({ error: 'invalid_pay_method' }, 400)
+
   const id = newId()
   const now = Date.now()
 
@@ -129,7 +140,20 @@ servicesRoutes.put('/:id', zValidator('json', serviceBaseSchema.partial()), asyn
   const existing = await getServiceWithExtras(c.req.param('id'))
   if (!existing) return c.json({ error: 'Not found' }, 404)
 
+  const ownerModel = await findModelInBrand(existing.modelId, caller.brandId)
+  if (!ownerModel) return c.json({ error: 'Not found' }, 404)
+
   const data = c.req.valid('json')
+
+  if (data.modelId !== undefined) {
+    const newModel = await findModelInBrand(data.modelId, caller.brandId)
+    if (!newModel) return c.json({ error: 'Model not found' }, 404)
+  }
+  if (data.payMethodId !== undefined) {
+    const payMethod = await findPayMethodInBrand(data.payMethodId, caller.brandId)
+    if (!payMethod) return c.json({ error: 'invalid_pay_method' }, 400)
+  }
+
   const now = Date.now()
   const { extras, ...serviceData } = data
 
@@ -160,6 +184,9 @@ servicesRoutes.delete('/:id', async (c) => {
 
   const existing = await getServiceWithExtras(c.req.param('id'))
   if (!existing) return c.json({ error: 'Not found' }, 404)
+
+  const ownerModel = await findModelInBrand(existing.modelId, caller.brandId)
+  if (!ownerModel) return c.json({ error: 'Not found' }, 404)
 
   const now = Date.now()
   await db.update(services).set({ deletedAt: now, updatedAt: now }).where(eq(services.id, c.req.param('id')))

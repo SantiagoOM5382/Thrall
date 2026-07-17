@@ -43,6 +43,13 @@
       "when": 1784249806426,
       "tag": "0005_wallet_tokens",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1784253231224,
+      "tag": "0006_pay_methods_brand_scoped",
+      "breakpoints": true
     }
   ]
 }

@@ -6549,6 +6549,7 @@ var init_schema = __esm({
     });
     payMethods = sqliteTable("pay_methods", {
       id: text("id").primaryKey(),
+      brandId: text("brand_id").notNull().references(() => brands.id),
       code: text("code").notNull(),
       displayName: text("display_name").notNull(),
       isActive: integer2("is_active").notNull().default(1),
@@ -6556,7 +6557,7 @@ var init_schema = __esm({
       updatedAt: integer2("updated_at").notNull(),
       deletedAt: integer2("deleted_at")
     }, (t) => ({
-      codeIdx: uniqueIndex("pay_methods_code_idx").on(t.code)
+      brandCodeIdx: uniqueIndex("pay_methods_brand_code_idx").on(t.brandId, t.code)
     }));
     services = sqliteTable("services", {
       id: text("id").primaryKey(),
@@ -71436,25 +71437,25 @@ var bodySchema = external_exports.object({
   displayName: external_exports.string().min(1)
 });
 payMethodsRoutes.get("/", async (c) => {
-  const role = c.get("user").role;
+  const caller = c.get("user");
   const all = await db.query.payMethods.findMany({
-    where: (pm, { isNull: isNull4 }) => isNull4(pm.deletedAt)
+    where: and(eq(payMethods.brandId, caller.brandId), isNull(payMethods.deletedAt))
   });
-  return c.json(all.map((pm) => serializePayMethod(pm, role)));
+  return c.json(all.map((pm) => serializePayMethod(pm, caller.role)));
 });
 payMethodsRoutes.post("/", requireRole("admin"), zValidator("json", bodySchema), async (c) => {
   const caller = c.get("user");
   const data = c.req.valid("json");
   const id = newId();
   const now = Date.now();
-  await db.insert(payMethods).values({ id, ...data, isActive: 1, createdAt: now, updatedAt: now });
+  await db.insert(payMethods).values({ id, brandId: caller.brandId, ...data, isActive: 1, createdAt: now, updatedAt: now });
   await logAudit(db, { userId: caller.sub, action: "CREATE", entity: "pay_method", entityId: id });
   return c.json(serializePayMethod({ id, ...data, isActive: 1 }, caller.role), 201);
 });
 payMethodsRoutes.put("/:id", requireRole("admin"), zValidator("json", bodySchema.partial()), async (c) => {
   const caller = c.get("user");
   const existing = await db.query.payMethods.findFirst({
-    where: (pm, { and: and3, eq: eq2, isNull: isNull4 }) => and3(eq2(pm.id, c.req.param("id")), isNull4(pm.deletedAt))
+    where: and(eq(payMethods.id, c.req.param("id")), eq(payMethods.brandId, caller.brandId), isNull(payMethods.deletedAt))
   });
   if (!existing) return c.json({ error: "Not found" }, 404);
   const now = Date.now();
@@ -71466,7 +71467,7 @@ payMethodsRoutes.put("/:id", requireRole("admin"), zValidator("json", bodySchema
 payMethodsRoutes.delete("/:id", requireRole("admin"), async (c) => {
   const caller = c.get("user");
   const existing = await db.query.payMethods.findFirst({
-    where: (pm, { and: and3, eq: eq2, isNull: isNull4 }) => and3(eq2(pm.id, c.req.param("id")), isNull4(pm.deletedAt))
+    where: and(eq(payMethods.id, c.req.param("id")), eq(payMethods.brandId, caller.brandId), isNull(payMethods.deletedAt))
   });
   if (!existing) return c.json({ error: "Not found" }, 404);
   const now = Date.now();
@@ -71493,6 +71494,25 @@ function getTodayRangeInBogota() {
   const start = (/* @__PURE__ */ new Date(`${dateStr}T00:00:00-05:00`)).getTime();
   const end = (/* @__PURE__ */ new Date(`${dateStr}T23:59:59.999-05:00`)).getTime();
   return { start, end };
+}
+
+// src/lib/brand-scope.ts
+init_drizzle_orm();
+init_client();
+init_schema();
+async function findModelInBrand(modelId, brandId) {
+  return db.query.users.findFirst({
+    where: and(eq(users.id, modelId), eq(users.role, "model"), eq(users.brandId, brandId), isNull(users.deletedAt))
+  });
+}
+async function modelIdsForBrand(brandId) {
+  const rows = await db.select({ id: users.id }).from(users).where(and(eq(users.brandId, brandId), eq(users.role, "model")));
+  return rows.map((r) => r.id);
+}
+async function findPayMethodInBrand(payMethodId, brandId) {
+  return db.query.payMethods.findFirst({
+    where: and(eq(payMethods.id, payMethodId), eq(payMethods.brandId, brandId), isNull(payMethods.deletedAt))
+  });
 }
 
 // src/routes/services.ts
@@ -71526,7 +71546,9 @@ servicesRoutes.get("/", async (c) => {
   const caller = c.get("user");
   const { start, end } = getTodayRangeInBogota();
   if (caller.role === "admin") {
-    const all = await db.query.services.findMany({
+    const brandModelIds = await modelIdsForBrand(caller.brandId);
+    const all = brandModelIds.length === 0 ? [] : await db.query.services.findMany({
+      where: (s, { inArray: inArrayFn }) => inArrayFn(s.modelId, brandModelIds),
       orderBy: (s, { desc: desc2 }) => [desc2(s.createdAt)]
     });
     const withExtras2 = await Promise.all(all.map(
@@ -71535,8 +71557,9 @@ servicesRoutes.get("/", async (c) => {
     return c.json(withExtras2);
   }
   if (caller.role === "monitor") {
-    const todayServices = await db.query.services.findMany({
-      where: (s, { and: and3, between: between3, isNull: isNull4 }) => and3(between3(s.startTime, start, end), isNull4(s.deletedAt)),
+    const brandModelIds = await modelIdsForBrand(caller.brandId);
+    const todayServices = brandModelIds.length === 0 ? [] : await db.query.services.findMany({
+      where: (s, { and: and3, between: between3, isNull: isNull4, inArray: inArrayFn }) => and3(inArrayFn(s.modelId, brandModelIds), between3(s.startTime, start, end), isNull4(s.deletedAt)),
       orderBy: (s, { desc: desc2 }) => [desc2(s.startTime)]
     });
     const withExtras2 = await Promise.all(todayServices.map(
@@ -71559,6 +71582,10 @@ servicesRoutes.post("/", zValidator("json", createSchema2), async (c) => {
     return c.json({ error: "Forbidden" }, 403);
   }
   const data = c.req.valid("json");
+  const model = await findModelInBrand(data.modelId, caller.brandId);
+  if (!model) return c.json({ error: "Model not found" }, 404);
+  const payMethod = await findPayMethodInBrand(data.payMethodId, caller.brandId);
+  if (!payMethod) return c.json({ error: "invalid_pay_method" }, 400);
   const id = newId();
   const now = Date.now();
   await db.insert(services).values({
@@ -71593,7 +71620,17 @@ servicesRoutes.put("/:id", zValidator("json", serviceBaseSchema.partial()), asyn
   }
   const existing = await getServiceWithExtras(c.req.param("id"));
   if (!existing) return c.json({ error: "Not found" }, 404);
+  const ownerModel = await findModelInBrand(existing.modelId, caller.brandId);
+  if (!ownerModel) return c.json({ error: "Not found" }, 404);
   const data = c.req.valid("json");
+  if (data.modelId !== void 0) {
+    const newModel = await findModelInBrand(data.modelId, caller.brandId);
+    if (!newModel) return c.json({ error: "Model not found" }, 404);
+  }
+  if (data.payMethodId !== void 0) {
+    const payMethod = await findPayMethodInBrand(data.payMethodId, caller.brandId);
+    if (!payMethod) return c.json({ error: "invalid_pay_method" }, 400);
+  }
   const now = Date.now();
   const { extras, ...serviceData } = data;
   await db.update(services).set({ ...serviceData, updatedAt: now }).where(eq(services.id, c.req.param("id")));
@@ -71619,6 +71656,8 @@ servicesRoutes.delete("/:id", async (c) => {
   }
   const existing = await getServiceWithExtras(c.req.param("id"));
   if (!existing) return c.json({ error: "Not found" }, 404);
+  const ownerModel = await findModelInBrand(existing.modelId, caller.brandId);
+  if (!ownerModel) return c.json({ error: "Not found" }, 404);
   const now = Date.now();
   await db.update(services).set({ deletedAt: now, updatedAt: now }).where(eq(services.id, c.req.param("id")));
   await logAudit(db, { userId: caller.sub, action: "DELETE", entity: "service", entityId: c.req.param("id") });
@@ -71843,16 +71882,18 @@ var createSchema3 = external_exports.object({
 });
 finesRoutes.get("/", async (c) => {
   const caller = c.get("user");
+  const brandModelIds = await modelIdsForBrand(caller.brandId);
   if (caller.role === "admin") {
-    const all = await db.query.fines.findMany({
+    const all = brandModelIds.length === 0 ? [] : await db.query.fines.findMany({
+      where: (f, { inArray: inArrayFn }) => inArrayFn(f.modelId, brandModelIds),
       orderBy: (f, { desc: desc2 }) => [desc2(f.createdAt)]
     });
     return c.json(all);
   }
   const { start, end } = getTodayRangeInBogota();
   if (caller.role === "monitor") {
-    const today = await db.query.fines.findMany({
-      where: (f, { and: and3, between: between3, isNull: isNull4 }) => and3(between3(f.createdAt, start, end), isNull4(f.deletedAt)),
+    const today = brandModelIds.length === 0 ? [] : await db.query.fines.findMany({
+      where: (f, { and: and3, between: between3, isNull: isNull4, inArray: inArrayFn }) => and3(inArrayFn(f.modelId, brandModelIds), between3(f.createdAt, start, end), isNull4(f.deletedAt)),
       orderBy: (f, { desc: desc2 }) => [desc2(f.createdAt)]
     });
     return c.json(today);
@@ -71866,9 +71907,7 @@ finesRoutes.get("/", async (c) => {
 finesRoutes.post("/", requireRole("admin", "monitor"), zValidator("json", createSchema3), async (c) => {
   const caller = c.get("user");
   const data = c.req.valid("json");
-  const model = await db.query.users.findFirst({
-    where: (u, { and: and3, eq: eqFn, isNull: isNull4 }) => and3(eqFn(u.id, data.modelId), eqFn(u.role, "model"), isNull4(u.deletedAt))
-  });
+  const model = await findModelInBrand(data.modelId, caller.brandId);
   if (!model) return c.json({ error: "Model not found" }, 404);
   const id = newId();
   const now = Date.now();
@@ -71893,6 +71932,8 @@ finesRoutes.put("/:id", requireRole("admin"), zValidator("json", amountSchema), 
     where: (f, { and: and3, eq: eqFn, isNull: isNull4 }) => and3(eqFn(f.id, id), isNull4(f.deletedAt))
   });
   if (!existing) return c.json({ error: "Not found" }, 404);
+  const ownerModel = await findModelInBrand(existing.modelId, caller.brandId);
+  if (!ownerModel) return c.json({ error: "Not found" }, 404);
   await db.update(fines).set({ amount }).where(eq(fines.id, id));
   await logAudit(db, { userId: caller.sub, action: "UPDATE", entity: "fine", entityId: id });
   const updated = await db.query.fines.findFirst({ where: eq(fines.id, id) });
@@ -71905,6 +71946,8 @@ finesRoutes.delete("/:id", requireRole("admin"), async (c) => {
     where: (f, { and: and3, eq: eqFn, isNull: isNull4 }) => and3(eqFn(f.id, id), isNull4(f.deletedAt))
   });
   if (!existing) return c.json({ error: "Not found" }, 404);
+  const ownerModel = await findModelInBrand(existing.modelId, caller.brandId);
+  if (!ownerModel) return c.json({ error: "Not found" }, 404);
   await db.update(fines).set({ deletedAt: Date.now() }).where(eq(fines.id, id));
   await logAudit(db, { userId: caller.sub, action: "DELETE", entity: "fine", entityId: id });
   return c.json({ ok: true });
@@ -71924,16 +71967,18 @@ var createSchema4 = external_exports.object({
 });
 loansRoutes.get("/", async (c) => {
   const caller = c.get("user");
+  const brandModelIds = await modelIdsForBrand(caller.brandId);
   if (caller.role === "admin") {
-    const all = await db.query.loans.findMany({
+    const all = brandModelIds.length === 0 ? [] : await db.query.loans.findMany({
+      where: (l, { inArray: inArrayFn }) => inArrayFn(l.modelId, brandModelIds),
       orderBy: (l, { desc: desc2 }) => [desc2(l.createdAt)]
     });
     return c.json(all);
   }
   const { start, end } = getTodayRangeInBogota();
   if (caller.role === "monitor") {
-    const today = await db.query.loans.findMany({
-      where: (l, { and: and3, between: between3, isNull: isNull4 }) => and3(between3(l.createdAt, start, end), isNull4(l.deletedAt)),
+    const today = brandModelIds.length === 0 ? [] : await db.query.loans.findMany({
+      where: (l, { and: and3, between: between3, isNull: isNull4, inArray: inArrayFn }) => and3(inArrayFn(l.modelId, brandModelIds), between3(l.createdAt, start, end), isNull4(l.deletedAt)),
       orderBy: (l, { desc: desc2 }) => [desc2(l.createdAt)]
     });
     return c.json(today);
@@ -71947,9 +71992,7 @@ loansRoutes.get("/", async (c) => {
 loansRoutes.post("/", requireRole("admin", "monitor"), zValidator("json", createSchema4), async (c) => {
   const caller = c.get("user");
   const data = c.req.valid("json");
-  const model = await db.query.users.findFirst({
-    where: (u, { and: and3, eq: eqFn, isNull: isNull4 }) => and3(eqFn(u.id, data.modelId), eqFn(u.role, "model"), isNull4(u.deletedAt))
-  });
+  const model = await findModelInBrand(data.modelId, caller.brandId);
   if (!model) return c.json({ error: "Model not found" }, 404);
   const id = newId();
   const now = Date.now();
@@ -71974,6 +72017,8 @@ loansRoutes.put("/:id", requireRole("admin", "monitor"), zValidator("json", amou
     where: (l, { and: and3, eq: eqFn, isNull: isNull4 }) => and3(eqFn(l.id, id), isNull4(l.deletedAt))
   });
   if (!existing) return c.json({ error: "Not found" }, 404);
+  const ownerModel = await findModelInBrand(existing.modelId, caller.brandId);
+  if (!ownerModel) return c.json({ error: "Not found" }, 404);
   await db.update(loans).set({ amount }).where(eq(loans.id, id));
   await logAudit(db, { userId: caller.sub, action: "UPDATE", entity: "loan", entityId: id });
   const updated = await db.query.loans.findFirst({ where: eq(loans.id, id) });
@@ -71986,6 +72031,8 @@ loansRoutes.delete("/:id", requireRole("admin", "monitor"), async (c) => {
     where: (l, { and: and3, eq: eqFn, isNull: isNull4 }) => and3(eqFn(l.id, id), isNull4(l.deletedAt))
   });
   if (!existing) return c.json({ error: "Not found" }, 404);
+  const ownerModel = await findModelInBrand(existing.modelId, caller.brandId);
+  if (!ownerModel) return c.json({ error: "Not found" }, 404);
   await db.update(loans).set({ deletedAt: Date.now() }).where(eq(loans.id, id));
   await logAudit(db, { userId: caller.sub, action: "DELETE", entity: "loan", entityId: id });
   return c.json({ ok: true });
@@ -72004,8 +72051,11 @@ var createSchema5 = external_exports.object({
   payMethodId: external_exports.string()
 });
 paymentsRoutes.get("/", async (c) => {
+  const caller = c.get("user");
   const modelId = c.req.query("modelId");
   if (!modelId) return c.json({ error: "modelId is required" }, 400);
+  const model = await findModelInBrand(modelId, caller.brandId);
+  if (!model) return c.json({ error: "Model not found" }, 404);
   const list = await db.query.payments.findMany({
     where: (p, { eq: eqFn }) => eqFn(p.modelId, modelId),
     orderBy: (p, { desc: desc2 }) => [desc2(p.createdAt)]
@@ -72015,10 +72065,10 @@ paymentsRoutes.get("/", async (c) => {
 paymentsRoutes.post("/", zValidator("json", createSchema5), async (c) => {
   const caller = c.get("user");
   const data = c.req.valid("json");
-  const model = await db.query.users.findFirst({
-    where: (u, { and: and3, eq: eqFn, isNull: isNull4 }) => and3(eqFn(u.id, data.modelId), eqFn(u.role, "model"), isNull4(u.deletedAt))
-  });
+  const model = await findModelInBrand(data.modelId, caller.brandId);
   if (!model) return c.json({ error: "Model not found" }, 404);
+  const payMethod = await findPayMethodInBrand(data.payMethodId, caller.brandId);
+  if (!payMethod) return c.json({ error: "invalid_pay_method" }, 400);
   const id = newId();
   await db.insert(payments).values({
     id,

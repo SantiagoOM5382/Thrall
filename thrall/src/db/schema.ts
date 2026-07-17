@@ -42,6 +42,7 @@ export const userImages = sqliteTable('user_images', {
 
 export const payMethods = sqliteTable('pay_methods', {
   id: text('id').primaryKey(),
+  brandId: text('brand_id').notNull().references(() => brands.id),
   code: text('code').notNull(),
   displayName: text('display_name').notNull(),
   isActive: integer('is_active').notNull().default(1),
@@ -49,7 +50,7 @@ export const payMethods = sqliteTable('pay_methods', {
   updatedAt: integer('updated_at').notNull(),
   deletedAt: integer('deleted_at'),
 }, (t) => ({
-  codeIdx: uniqueIndex('pay_methods_code_idx').on(t.code),
+  brandCodeIdx: uniqueIndex('pay_methods_brand_code_idx').on(t.brandId, t.code),
 }))
 
 export const services = sqliteTable('services', {

@@ -6489,19 +6489,23 @@ var schema_exports = {};
 __export(schema_exports, {
   auditLogs: () => auditLogs,
   brandSubscriptions: () => brandSubscriptions,
+  brandWallets: () => brandWallets,
   brands: () => brands,
   fines: () => fines,
   loans: () => loans,
   payMethods: () => payMethods,
   payments: () => payments,
   products: () => products,
+  profileBoosts: () => profileBoosts,
   purchases: () => purchases,
   serviceExtras: () => serviceExtras,
   services: () => services,
+  topServices: () => topServices,
   userImages: () => userImages,
-  users: () => users
+  users: () => users,
+  walletTransactions: () => walletTransactions
 });
-var brands, users, userImages, payMethods, services, serviceExtras, auditLogs, brandSubscriptions, products, purchases, fines, loans, payments;
+var brands, users, userImages, payMethods, services, serviceExtras, auditLogs, brandSubscriptions, products, purchases, brandWallets, topServices, profileBoosts, walletTransactions, fines, loans, payments;
 var init_schema = __esm({
   "src/db/schema.ts"() {
     "use strict";
@@ -6604,6 +6608,7 @@ var init_schema = __esm({
       priceCop: integer2("price_cop").notNull(),
       durationDays: integer2("duration_days"),
       tokensGranted: integer2("tokens_granted"),
+      tokenDiscountPercent: integer2("token_discount_percent"),
       isActive: integer2("is_active").notNull().default(1),
       createdAt: integer2("created_at").notNull(),
       updatedAt: integer2("updated_at").notNull()
@@ -6625,6 +6630,54 @@ var init_schema = __esm({
     }, (t) => ({
       refIdx: uniqueIndex("purchases_wompi_reference_idx").on(t.wompiReference),
       brandCreatedIdx: index("purchases_brand_created_idx").on(t.brandId, t.createdAt)
+    }));
+    brandWallets = sqliteTable("brand_wallets", {
+      id: text("id").primaryKey(),
+      brandId: text("brand_id").notNull().references(() => brands.id),
+      tokensBalance: integer2("tokens_balance").notNull().default(0),
+      createdAt: integer2("created_at").notNull(),
+      updatedAt: integer2("updated_at").notNull()
+    }, (t) => ({
+      brandIdx: uniqueIndex("brand_wallets_brand_idx").on(t.brandId)
+    }));
+    topServices = sqliteTable("top_services", {
+      id: text("id").primaryKey(),
+      code: text("code").notNull(),
+      displayName: text("display_name").notNull(),
+      tokensCost: integer2("tokens_cost").notNull(),
+      durationHours: integer2("duration_hours").notNull(),
+      isActive: integer2("is_active").notNull().default(1),
+      createdAt: integer2("created_at").notNull(),
+      updatedAt: integer2("updated_at").notNull()
+    }, (t) => ({
+      codeIdx: uniqueIndex("top_services_code_idx").on(t.code)
+    }));
+    profileBoosts = sqliteTable("profile_boosts", {
+      id: text("id").primaryKey(),
+      modelId: text("model_id").notNull().references(() => users.id),
+      brandId: text("brand_id").notNull().references(() => brands.id),
+      purchasedBy: text("purchased_by").notNull().references(() => users.id),
+      topServiceId: text("top_service_id").notNull().references(() => topServices.id),
+      tokensSpent: integer2("tokens_spent").notNull(),
+      startsAt: integer2("starts_at").notNull(),
+      endsAt: integer2("ends_at").notNull(),
+      createdAt: integer2("created_at").notNull()
+    }, (t) => ({
+      modelEndsIdx: index("profile_boosts_model_ends_idx").on(t.modelId, t.endsAt),
+      brandCreatedIdx: index("profile_boosts_brand_created_idx").on(t.brandId, t.createdAt)
+    }));
+    walletTransactions = sqliteTable("wallet_transactions", {
+      id: text("id").primaryKey(),
+      brandId: text("brand_id").notNull().references(() => brands.id),
+      type: text("type", { enum: ["CREDIT_PURCHASE", "DEBIT_BOOST"] }).notNull(),
+      amount: integer2("amount").notNull(),
+      balanceAfter: integer2("balance_after").notNull(),
+      purchaseId: text("purchase_id").references(() => purchases.id),
+      profileBoostId: text("profile_boost_id").references(() => profileBoosts.id),
+      description: text("description").notNull(),
+      createdAt: integer2("created_at").notNull()
+    }, (t) => ({
+      brandCreatedIdx: index("wallet_transactions_brand_created_idx").on(t.brandId, t.createdAt)
     }));
     fines = sqliteTable("fines", {
       id: text("id").primaryKey(),

@@ -21,6 +21,11 @@ describe('GET /api/products', () => {
     const res = await app.request('/api/products?type=TOKEN_PACK')
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body).toEqual([])
+    const codes = body.map((p: { code: string }) => p.code).sort()
+    expect(codes).toEqual(['tokens_100', 'tokens_1500', 'tokens_500'])
+    for (const p of body) {
+      expect(p.type).toBe('TOKEN_PACK')
+      expect(p.tokensGranted).toBeGreaterThan(0)
+    }
   })
 })

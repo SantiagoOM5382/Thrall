@@ -106,6 +106,7 @@ export const products = sqliteTable('products', {
   priceCop: integer('price_cop').notNull(),
   durationDays: integer('duration_days'),
   tokensGranted: integer('tokens_granted'),
+  tokenDiscountPercent: integer('token_discount_percent'),
   isActive: integer('is_active').notNull().default(1),
   createdAt: integer('created_at').notNull(),
   updatedAt: integer('updated_at').notNull(),
@@ -128,6 +129,58 @@ export const purchases = sqliteTable('purchases', {
 }, (t) => ({
   refIdx: uniqueIndex('purchases_wompi_reference_idx').on(t.wompiReference),
   brandCreatedIdx: index('purchases_brand_created_idx').on(t.brandId, t.createdAt),
+}))
+
+export const brandWallets = sqliteTable('brand_wallets', {
+  id: text('id').primaryKey(),
+  brandId: text('brand_id').notNull().references(() => brands.id),
+  tokensBalance: integer('tokens_balance').notNull().default(0),
+  createdAt: integer('created_at').notNull(),
+  updatedAt: integer('updated_at').notNull(),
+}, (t) => ({
+  brandIdx: uniqueIndex('brand_wallets_brand_idx').on(t.brandId),
+}))
+
+export const topServices = sqliteTable('top_services', {
+  id: text('id').primaryKey(),
+  code: text('code').notNull(),
+  displayName: text('display_name').notNull(),
+  tokensCost: integer('tokens_cost').notNull(),
+  durationHours: integer('duration_hours').notNull(),
+  isActive: integer('is_active').notNull().default(1),
+  createdAt: integer('created_at').notNull(),
+  updatedAt: integer('updated_at').notNull(),
+}, (t) => ({
+  codeIdx: uniqueIndex('top_services_code_idx').on(t.code),
+}))
+
+export const profileBoosts = sqliteTable('profile_boosts', {
+  id: text('id').primaryKey(),
+  modelId: text('model_id').notNull().references(() => users.id),
+  brandId: text('brand_id').notNull().references(() => brands.id),
+  purchasedBy: text('purchased_by').notNull().references(() => users.id),
+  topServiceId: text('top_service_id').notNull().references(() => topServices.id),
+  tokensSpent: integer('tokens_spent').notNull(),
+  startsAt: integer('starts_at').notNull(),
+  endsAt: integer('ends_at').notNull(),
+  createdAt: integer('created_at').notNull(),
+}, (t) => ({
+  modelEndsIdx: index('profile_boosts_model_ends_idx').on(t.modelId, t.endsAt),
+  brandCreatedIdx: index('profile_boosts_brand_created_idx').on(t.brandId, t.createdAt),
+}))
+
+export const walletTransactions = sqliteTable('wallet_transactions', {
+  id: text('id').primaryKey(),
+  brandId: text('brand_id').notNull().references(() => brands.id),
+  type: text('type', { enum: ['CREDIT_PURCHASE', 'DEBIT_BOOST'] }).notNull(),
+  amount: integer('amount').notNull(),
+  balanceAfter: integer('balance_after').notNull(),
+  purchaseId: text('purchase_id').references(() => purchases.id),
+  profileBoostId: text('profile_boost_id').references(() => profileBoosts.id),
+  description: text('description').notNull(),
+  createdAt: integer('created_at').notNull(),
+}, (t) => ({
+  brandCreatedIdx: index('wallet_transactions_brand_created_idx').on(t.brandId, t.createdAt),
 }))
 
 export const fines = sqliteTable('fines', {

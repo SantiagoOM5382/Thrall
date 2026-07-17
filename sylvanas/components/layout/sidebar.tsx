@@ -7,6 +7,7 @@ import {
   Trophy,
   Building2,
   Wallet,
+  Coins,
   Users,
   Sparkles,
   CreditCard,
@@ -17,6 +18,7 @@ import {
 } from "lucide-react"
 import { useSession } from "@/components/session-provider"
 import { useSubscription } from "@/lib/subscription-context"
+import { useWallet } from "@/lib/wallet-context"
 import { logout } from "@/lib/auth"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -50,6 +52,7 @@ const GROUPS: NavGroup[] = [
     items: [
       { href: "/dashboard/earnings", label: "Ganancias empresa", icon: Building2, roles: ["admin"] },
       { href: "/dashboard/model-earnings", label: "Ganancias por modelo", icon: Wallet, roles: ["admin"] },
+      { href: "/dashboard/tokens", label: "Tokens", icon: Coins, roles: ["admin"] },
     ],
   },
   {
@@ -98,6 +101,7 @@ const GATED = new Set([
 export function Sidebar() {
   const user = useSession()
   const sub = useSubscription()
+  const wallet = useWallet()
   const pathname = usePathname()
 
   const groups = GROUPS.map((g) => ({
@@ -167,6 +171,11 @@ export function Sidebar() {
                   {locked && (
                     <span className="ml-1 opacity-60" aria-label="Requiere suscripción">
                       🔒
+                    </span>
+                  )}
+                  {item.href === "/dashboard/tokens" && (
+                    <span className="ml-auto rounded-full bg-sidebar-primary/15 px-2 py-0.5 text-[0.7rem] font-medium text-sidebar-primary">
+                      {wallet.tokensBalance}
                     </span>
                   )}
                 </Link>

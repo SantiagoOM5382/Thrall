@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
+import { useWallet } from "@/lib/wallet-context"
 import { boostModel } from "../actions"
 
 type TopService = {
@@ -16,6 +17,7 @@ type TopService = {
 export function BoostButton({ modelId, services }: { modelId: string; services: TopService[] }) {
   const [isPending, startTransition] = useTransition()
   const [selected, setSelected] = useState(services[0]?.id ?? "")
+  const wallet = useWallet()
 
   if (services.length === 0) return null
 
@@ -23,7 +25,10 @@ export function BoostButton({ modelId, services }: { modelId: string; services: 
     startTransition(async () => {
       const res = await boostModel(modelId, selected)
       if (res.error) toast.error(res.error)
-      else toast.success("Modelo destacado")
+      else {
+        toast.success("Modelo destacado")
+        wallet.refetch()
+      }
     })
   }
 

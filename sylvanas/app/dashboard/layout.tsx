@@ -6,6 +6,7 @@ import { getSubscription } from "@/lib/subscription-server"
 import { WalletProvider } from "@/lib/wallet-context"
 import { getWallet } from "@/lib/wallet-server"
 import { Sidebar } from "@/components/layout/sidebar"
+import { DashboardFooter } from "@/components/layout/dashboard-footer"
 import { TrialBanner } from "@/components/shared/TrialBanner"
 
 export default async function DashboardLayout({
@@ -25,7 +26,10 @@ export default async function DashboardLayout({
           <TrialBanner />
           <div className="flex min-h-screen">
             <Sidebar />
-            <main className="flex-1 overflow-auto p-6">{children}</main>
+            <div className="flex flex-1 flex-col overflow-auto">
+              <main className="flex-1 p-6">{children}</main>
+              <DashboardFooter />
+            </div>
           </div>
         </WalletProvider>
       </SubscriptionProvider>

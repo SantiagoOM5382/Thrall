@@ -14,6 +14,7 @@ import {
   UserCircle,
   LogOut,
   LayoutGrid,
+  Lock,
   type LucideIcon,
 } from "lucide-react"
 import { useSession } from "@/components/session-provider"
@@ -87,9 +88,9 @@ const ROLE_LABEL: Record<Role, string> = {
 
 const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? "Arthas"
 
-// Gated sections: locked behind a paid subscription. Shown with a 🔒 while
-// on the free tier / expired trial. brand-earnings is dev-only and bypasses
-// gating entirely, so it's intentionally excluded here.
+// Gated sections: locked behind a paid subscription. Shown with a lock icon
+// while on the free tier / expired trial. brand-earnings is dev-only and
+// bypasses gating entirely, so it's intentionally excluded here.
 const GATED = new Set([
   "/dashboard/services",
   "/dashboard/pay-methods",
@@ -123,12 +124,17 @@ export function Sidebar() {
         <span className="flex size-8 items-center justify-center rounded-md bg-sidebar-primary font-heading text-sm font-bold text-sidebar-primary-foreground">
           {APP_NAME[0]}
         </span>
-        <span className="font-heading text-lg font-semibold tracking-tight">
-          {APP_NAME}
-        </span>
+        <div className="min-w-0">
+          <p className="truncate font-heading text-lg leading-tight font-semibold tracking-tight">
+            {APP_NAME}
+          </p>
+          <p className="truncate text-[0.7rem] leading-tight text-sidebar-foreground/45">
+            Panel administrativo
+          </p>
+        </div>
       </div>
 
-      <nav className="flex flex-1 flex-col gap-5 overflow-y-auto px-3 pb-4">
+      <nav className="flex flex-1 flex-col gap-6 overflow-y-auto px-3 pb-4">
         {groups.map((group) => (
           <div key={group.label} className="flex flex-col gap-0.5">
             <p className="px-3 pb-1 text-[0.68rem] font-semibold uppercase tracking-[0.12em] text-sidebar-foreground/45">
@@ -159,22 +165,25 @@ export function Sidebar() {
                       active ? "opacity-100" : "opacity-0"
                     )}
                   />
-                  <Icon
+                  <span
                     className={cn(
-                      "size-[1.05rem] shrink-0 transition-colors",
+                      "flex size-7 shrink-0 items-center justify-center rounded-md transition-colors",
                       active
-                        ? "text-sidebar-primary"
-                        : "text-sidebar-foreground/50 group-hover:text-sidebar-foreground/80"
+                        ? "bg-sidebar-primary/15 text-sidebar-primary"
+                        : "text-sidebar-foreground/50 group-hover:bg-sidebar-accent group-hover:text-sidebar-foreground/80"
                     )}
-                  />
-                  {item.label}
+                  >
+                    <Icon className="size-4" />
+                  </span>
+                  <span className="truncate">{item.label}</span>
                   {locked && (
-                    <span className="ml-1 opacity-60" aria-label="Requiere suscripción">
-                      🔒
-                    </span>
+                    <Lock
+                      className="ml-1 size-3 shrink-0 text-sidebar-foreground/40"
+                      aria-label="Requiere suscripción"
+                    />
                   )}
                   {item.href === "/dashboard/tokens" && (
-                    <span className="ml-auto rounded-full bg-sidebar-primary/15 px-2 py-0.5 text-[0.7rem] font-medium text-sidebar-primary">
+                    <span className="ml-auto shrink-0 rounded-full bg-sidebar-primary/15 px-2 py-0.5 text-[0.7rem] font-medium text-sidebar-primary">
                       {wallet.tokensBalance}
                     </span>
                   )}

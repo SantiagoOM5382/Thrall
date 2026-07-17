@@ -1,12 +1,50 @@
 "use client"
 
+import { Clock, AlertTriangle } from "lucide-react"
 import { useSubscription } from "@/lib/subscription-context"
+import { cn } from "@/lib/utils"
+
+type Tone = "notice" | "urgent"
+
+const TONE_STYLES: Record<Tone, string> = {
+  notice: "bg-accent text-accent-foreground",
+  urgent: "bg-destructive/10 text-destructive",
+}
+
+function Banner({
+  tone,
+  message,
+  cta,
+}: {
+  tone: Tone
+  message: string
+  cta: string
+}) {
+  const Icon = tone === "notice" ? Clock : AlertTriangle
+  return (
+    <div className={cn("flex items-center justify-center gap-2 px-4 py-2 text-sm", TONE_STYLES[tone])}>
+      <Icon className="size-3.5 shrink-0" />
+      <span>{message}</span>
+      <a
+        href="/dashboard/subscribe"
+        className={cn(
+          "ml-1 shrink-0 rounded-full px-2.5 py-0.5 text-xs font-semibold transition-colors",
+          tone === "notice"
+            ? "bg-accent-foreground/10 hover:bg-accent-foreground/15"
+            : "bg-destructive/15 hover:bg-destructive/25"
+        )}
+      >
+        {cta}
+      </a>
+    </div>
+  )
+}
 
 /**
  * Dashboard-shell banner nudging brands toward a paid subscription. Hidden
- * entirely for grandfathered brands; amber while a trial is still active,
- * red once trial/paid access has lapsed and the brand is back on the free
- * tier with reduced functionality.
+ * entirely for grandfathered brands; "notice" tone (soft gold, matches the
+ * app's accent token) while a trial/plan is still active but ending soon,
+ * "urgent" tone (destructive token) once trial/paid access has lapsed.
  */
 export function TrialBanner() {
   const s = useSubscription()
@@ -15,47 +53,41 @@ export function TrialBanner() {
 
   if (s.status === "trial" && s.isPaidEffective) {
     return (
-      <div className="flex items-center justify-between gap-4 bg-amber-100 px-4 py-2 text-sm text-amber-900">
-        <span>
-          Trial: {s.daysLeft} día{s.daysLeft === 1 ? "" : "s"} restantes.
-        </span>
-        <a href="/dashboard/subscribe" className="font-medium underline">
-          Suscribirse
-        </a>
-      </div>
+      <Banner
+        tone="notice"
+        message={`Tu prueba termina en ${s.daysLeft} día${s.daysLeft === 1 ? "" : "s"}.`}
+        cta="Suscribirse"
+      />
     )
   }
 
   if (!s.isPaidEffective && s.tier === "free") {
     return (
-      <div className="flex items-center justify-between gap-4 bg-red-100 px-4 py-2 text-sm text-red-900">
-        <span>Tu trial terminó. Muchas funciones están bloqueadas.</span>
-        <a href="/dashboard/subscribe" className="font-medium underline">
-          Suscríbete para recuperarlas
-        </a>
-      </div>
+      <Banner
+        tone="urgent"
+        message="Tu prueba terminó — algunas funciones están bloqueadas."
+        cta="Suscribirse"
+      />
     )
   }
 
   if (s.tier === "paid" && s.status === "active" && s.daysLeft !== null && s.daysLeft > 0 && s.daysLeft <= 5) {
     return (
-      <div className="flex items-center justify-between gap-4 bg-amber-100 px-4 py-2 text-sm text-amber-900">
-        <span>Tu plan vence en {s.daysLeft} día{s.daysLeft === 1 ? "" : "s"}.</span>
-        <a href="/dashboard/subscribe" className="font-medium underline">
-          Renovar
-        </a>
-      </div>
+      <Banner
+        tone="notice"
+        message={`Tu plan vence en ${s.daysLeft} día${s.daysLeft === 1 ? "" : "s"}.`}
+        cta="Renovar"
+      />
     )
   }
 
   if (s.tier === "paid" && !s.isPaidEffective) {
     return (
-      <div className="flex items-center justify-between gap-4 bg-red-100 px-4 py-2 text-sm text-red-900">
-        <span>Tu plan venció. Muchas funciones están bloqueadas.</span>
-        <a href="/dashboard/subscribe" className="font-medium underline">
-          Renovar
-        </a>
-      </div>
+      <Banner
+        tone="urgent"
+        message="Tu plan venció — algunas funciones están bloqueadas."
+        cta="Renovar"
+      />
     )
   }
 

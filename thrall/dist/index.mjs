@@ -69756,12 +69756,30 @@ usersRoutes.delete("/:id", async (c) => {
 });
 
 // src/routes/models.ts
+init_drizzle_orm();
 init_client();
+init_schema();
+
+// src/lib/wallet.ts
+function applyDiscount(priceCop, discountPercent) {
+  const pct = discountPercent ?? 0;
+  return Math.round(priceCop * (1 - pct / 100));
+}
+function computeBoostExpiry(now, durationHours) {
+  return now + durationHours * 36e5;
+}
+
+// src/routes/models.ts
 var modelsRoutes = new Hono2();
+var InsufficientTokensError = class extends Error {
+};
 modelsRoutes.get("/", async (c) => {
+  const now = Date.now();
   const models = await db.query.users.findMany({
     where: (u, { and: and3, eq: eq2, isNull: isNull4 }) => and3(eq2(u.role, "model"), eq2(u.isActive, 1), isNull4(u.deletedAt))
   });
+  const activeBoosts = await db.select({ modelId: profileBoosts.modelId }).from(profileBoosts).where(gt(profileBoosts.endsAt, now));
+  const boostedIds = new Set(activeBoosts.map((b) => b.modelId));
   const result = await Promise.all(
     models.map(async (m) => {
       const images = await db.query.userImages.findMany({
@@ -69769,9 +69787,14 @@ modelsRoutes.get("/", async (c) => {
         orderBy: (img, { asc: asc2 }) => [asc2(img.sortOrder)]
       });
       const { password: _, ...model } = m;
-      return { ...model, images: images.map((i) => ({ id: i.id, url: i.url, sortOrder: i.sortOrder })) };
+      return {
+        ...model,
+        isBoosted: boostedIds.has(m.id),
+        images: images.map((i) => ({ id: i.id, url: i.url, sortOrder: i.sortOrder }))
+      };
     })
   );
+  result.sort((a, b) => Number(b.isBoosted) - Number(a.isBoosted));
   return c.json(result);
 });
 modelsRoutes.get("/:id", async (c) => {
@@ -69785,6 +69808,74 @@ modelsRoutes.get("/:id", async (c) => {
   });
   const { password: _, ...rest } = model;
   return c.json({ ...rest, images: images.map((i) => ({ id: i.id, url: i.url, sortOrder: i.sortOrder })) });
+});
+var boostSchema = external_exports.object({ topServiceId: external_exports.string().min(1) });
+modelsRoutes.post("/:id/boost", authMiddleware, zValidator("json", boostSchema), async (c) => {
+  const user = c.get("user");
+  const { topServiceId } = c.req.valid("json");
+  const modelId = c.req.param("id");
+  const model = await db.query.users.findFirst({
+    where: and(eq(users.id, modelId), eq(users.role, "model"), eq(users.brandId, user.brandId))
+  });
+  if (!model) return c.json({ error: "not_found" }, 404);
+  const service = await db.query.topServices.findFirst({
+    where: and(eq(topServices.id, topServiceId), eq(topServices.isActive, 1))
+  });
+  if (!service) return c.json({ error: "invalid_service" }, 400);
+  try {
+    const result = await db.transaction(async (tx) => {
+      const wallet = await tx.query.brandWallets.findFirst({
+        where: eq(brandWallets.brandId, user.brandId)
+      });
+      const currentBalance = wallet?.tokensBalance ?? 0;
+      if (currentBalance < service.tokensCost) {
+        throw new InsufficientTokensError();
+      }
+      const now = Date.now();
+      const endsAt = computeBoostExpiry(now, service.durationHours);
+      const newBalance = currentBalance - service.tokensCost;
+      const boostId = newId();
+      if (wallet) {
+        await tx.update(brandWallets).set({ tokensBalance: newBalance, updatedAt: now }).where(eq(brandWallets.id, wallet.id));
+      } else {
+        await tx.insert(brandWallets).values({
+          id: newId(),
+          brandId: user.brandId,
+          tokensBalance: newBalance,
+          createdAt: now,
+          updatedAt: now
+        });
+      }
+      await tx.insert(profileBoosts).values({
+        id: boostId,
+        modelId: model.id,
+        brandId: user.brandId,
+        purchasedBy: user.sub,
+        topServiceId: service.id,
+        tokensSpent: service.tokensCost,
+        startsAt: now,
+        endsAt,
+        createdAt: now
+      });
+      await tx.insert(walletTransactions).values({
+        id: newId(),
+        brandId: user.brandId,
+        type: "DEBIT_BOOST",
+        amount: service.tokensCost,
+        balanceAfter: newBalance,
+        profileBoostId: boostId,
+        description: `Boost: ${service.displayName}`,
+        createdAt: now
+      });
+      return { tokensBalance: newBalance, boost: { id: boostId, endsAt } };
+    });
+    return c.json(result);
+  } catch (err) {
+    if (err instanceof InsufficientTokensError) {
+      return c.json({ error: "insufficient_tokens" }, 400);
+    }
+    throw err;
+  }
 });
 
 // src/routes/images.ts
@@ -72032,12 +72123,6 @@ function verifyWebhookSignature(payload, eventsSecret) {
 function computeNewPaidUntil(current, product, now = Date.now()) {
   const base = Math.max(now, current.paidUntil ?? 0);
   return base + product.durationDays * 864e5;
-}
-
-// src/lib/wallet.ts
-function applyDiscount(priceCop, discountPercent) {
-  const pct = discountPercent ?? 0;
-  return Math.round(priceCop * (1 - pct / 100));
 }
 
 // src/routes/brand.ts

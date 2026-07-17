@@ -2,6 +2,10 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { Hono } from 'hono'
 import { modelsRoutes } from '../../src/routes/models'
 import { createTestBrand, createTestUser } from '../helpers'
+import fullApp from '../../src/app'
+import { db } from '../../src/db/client'
+import { profileBoosts } from '../../src/db/schema'
+import { newId } from '../../src/lib/ulid'
 
 const app = new Hono().basePath('/api')
 app.route('/models', modelsRoutes)
@@ -37,5 +41,32 @@ describe('GET /api/models/:id', () => {
     expect(body.id).toBe(id)
     expect(body.password).toBeUndefined()
     expect(Array.isArray(body.images)).toBe(true)
+  })
+})
+
+describe('GET /api/models — boost ordering', () => {
+  it('lists a boosted model before non-boosted ones and flags isBoosted', async () => {
+    const plain = await createTestUser(brandId, { role: 'model', email: `plain-${newId()}@test.com`, name: 'Plain' })
+    const boosted = await createTestUser(brandId, { role: 'model', email: `boosted-${newId()}@test.com`, name: 'Boosted' })
+    const now = Date.now()
+    await db.insert(profileBoosts).values({
+      id: newId(), modelId: boosted.id, brandId, purchasedBy: plain.id,
+      topServiceId: 'svc_top_perfil_24h', tokensSpent: 50,
+      startsAt: now, endsAt: now + 3_600_000, createdAt: now,
+    })
+    // Expired boost on `plain` must NOT count as active.
+    await db.insert(profileBoosts).values({
+      id: newId(), modelId: plain.id, brandId, purchasedBy: plain.id,
+      topServiceId: 'svc_top_perfil_24h', tokensSpent: 50,
+      startsAt: now - 100_000, endsAt: now - 1000, createdAt: now - 100_000,
+    })
+
+    const res = await fullApp.request('/api/models')
+    const body = await res.json() as any[]
+    const boostedEntry = body.find((m) => m.id === boosted.id)
+    const plainEntry = body.find((m) => m.id === plain.id)
+    expect(boostedEntry.isBoosted).toBe(true)
+    expect(plainEntry.isBoosted).toBe(false)
+    expect(body.indexOf(boostedEntry)).toBeLessThan(body.indexOf(plainEntry))
   })
 })

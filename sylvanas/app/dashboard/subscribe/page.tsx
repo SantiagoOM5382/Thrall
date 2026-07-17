@@ -46,9 +46,8 @@ export default async function SubscribePage() {
           {isPaid ? "Renovar o cambiar plan" : "Elige tu plan"}
         </h1>
         <ProductCards
-          products={products}
+          products={products.map(p => ({ ...p, subtitle: `${p.durationDays} días de acceso completo` }))}
           purchaseAction={createCheckout}
-          subtitle={(p) => `${p.durationDays} días de acceso completo`}
         />
       </section>
     </div>

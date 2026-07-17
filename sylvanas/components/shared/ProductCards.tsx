@@ -6,6 +6,7 @@ type Product = {
   code: string
   displayName: string
   priceCop: number
+  subtitle: string
 }
 
 function formatCop(n: number) {
@@ -15,11 +16,9 @@ function formatCop(n: number) {
 export function ProductCards<P extends Product>({
   products,
   purchaseAction,
-  subtitle,
 }: {
   products: P[]
   purchaseAction: (productId: string) => Promise<{ ok: true; checkoutUrl: string } | { ok: false; error: string }>
-  subtitle: (p: P) => string
 }) {
   const [pending, setPending] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -42,7 +41,7 @@ export function ProductCards<P extends Product>({
           <div key={p.id} className="rounded-lg border p-6 flex flex-col">
             <h3 className="text-lg font-semibold">{p.displayName}</h3>
             <p className="text-2xl font-bold mt-2">{formatCop(p.priceCop)}</p>
-            <p className="text-sm text-neutral-500 mt-1">{subtitle(p)}</p>
+            <p className="text-sm text-neutral-500 mt-1">{p.subtitle}</p>
             <button
               onClick={() => choose(p.id)}
               disabled={pending !== null}

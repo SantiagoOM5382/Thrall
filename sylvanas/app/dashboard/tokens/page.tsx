@@ -32,9 +32,8 @@ export default async function TokensPage() {
       <section>
         <h1 className="text-2xl font-semibold mb-4">Comprar tokens</h1>
         <ProductCards
-          products={products}
+          products={products.map(p => ({ ...p, subtitle: `${p.tokensGranted} tokens` }))}
           purchaseAction={purchaseTokens}
-          subtitle={(p) => `${p.tokensGranted} tokens`}
         />
       </section>
     </div>

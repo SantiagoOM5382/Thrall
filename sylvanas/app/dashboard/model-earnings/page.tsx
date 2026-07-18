@@ -55,7 +55,7 @@ export default async function ModelEarningsPage({
   }
 
   const sp = await searchParams
-  const models = await apiFetch<Model[]>("/models")
+  const models = await apiFetch<Model[]>("/brand/models")
 
   const today = todayBogota()
   const from = sp.from ?? today

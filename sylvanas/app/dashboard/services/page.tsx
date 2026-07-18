@@ -36,7 +36,7 @@ export const dynamic = "force-dynamic"
 async function loadData() {
   const [services, models, payMethods, fines, loans] = await Promise.all([
     apiFetch<Service[]>("/services"),
-    apiFetch<Model[]>("/models"),
+    apiFetch<Model[]>("/brand/models"),
     apiFetch<PayMethod[]>("/pay-methods"),
     apiFetch<Fine[]>("/fines"),
     apiFetch<Loan[]>("/loans"),

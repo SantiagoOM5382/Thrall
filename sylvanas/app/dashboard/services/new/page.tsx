@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic"
 export default async function NewServicePage() {
   const user = await getSession()
   const [models, payMethods] = await Promise.all([
-    apiFetch<Model[]>("/models"),
+    apiFetch<Model[]>("/brand/models"),
     apiFetch<PayMethod[]>("/pay-methods"),
   ])
 

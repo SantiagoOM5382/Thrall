@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { toast } from "sonner"
+import { Plus, Pencil, Loader2 } from "lucide-react"
 import { createPayMethod, updatePayMethod } from "./actions"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -66,9 +67,10 @@ export function PayMethodFormDialog({ mode, initial }: Props) {
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger
         render={
-          <Button variant={mode === "create" ? "default" : "ghost"} size="sm" />
+          <Button variant={mode === "create" ? "default" : "ghost"} size="sm" className="gap-1.5" />
         }
       >
+        {mode === "create" ? <Plus className="size-4" /> : <Pencil className="size-3.5" />}
         {mode === "create" ? "Nuevo método" : "Editar"}
       </DialogTrigger>
       <DialogContent>
@@ -99,7 +101,8 @@ export function PayMethodFormDialog({ mode, initial }: Props) {
             )}
           </div>
           <DialogFooter>
-            <Button type="submit" disabled={isPending}>
+            <Button type="submit" disabled={isPending} className="gap-2">
+              {isPending && <Loader2 className="size-4 animate-spin" />}
               {isPending ? "Guardando…" : "Guardar"}
             </Button>
           </DialogFooter>

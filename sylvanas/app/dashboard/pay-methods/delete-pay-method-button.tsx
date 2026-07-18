@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react"
 import { toast } from "sonner"
+import { Trash2, Loader2 } from "lucide-react"
 import { deletePayMethod } from "./actions"
 import { Button } from "@/components/ui/button"
 import {
@@ -38,7 +39,8 @@ export function DeletePayMethodButton({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button variant="ghost" size="sm" />}>
+      <DialogTrigger render={<Button variant="ghost" size="sm" className="gap-1.5" />}>
+        <Trash2 className="size-3.5" />
         Eliminar
       </DialogTrigger>
       <DialogContent>
@@ -50,7 +52,8 @@ export function DeletePayMethodButton({
         </DialogHeader>
         <DialogFooter>
           <DialogClose render={<Button variant="outline" />}>Cancelar</DialogClose>
-          <Button variant="destructive" onClick={onConfirm} disabled={isPending}>
+          <Button variant="destructive" onClick={onConfirm} disabled={isPending} className="gap-1.5">
+            {isPending && <Loader2 className="size-3.5 animate-spin" />}
             {isPending ? "Eliminando…" : "Eliminar"}
           </Button>
         </DialogFooter>

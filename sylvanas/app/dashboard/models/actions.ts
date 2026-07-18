@@ -77,3 +77,27 @@ export async function boostModel(
     return { error: err instanceof Error ? err.message : "No se pudo aplicar el boost" }
   }
 }
+
+export interface CreateModelInput {
+  name: string
+  email: string
+  password: string
+  phone?: string
+  telegram?: string
+  description?: string
+}
+
+export async function createModel(
+  data: CreateModelInput
+): Promise<{ error?: string }> {
+  try {
+    await apiFetch("/users", {
+      method: "POST",
+      body: JSON.stringify({ ...data, role: "model" }),
+    })
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Error al crear modelo" }
+  }
+  revalidatePath("/dashboard/models")
+  return {}
+}

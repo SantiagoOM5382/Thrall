@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { toast } from "sonner"
+import { UserPlus, Loader2 } from "lucide-react"
 import { createUser } from "./actions"
 import { useSubscription } from "@/lib/subscription-context"
 import { Button } from "@/components/ui/button"
@@ -19,6 +20,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+import { NativeSelect as Select } from "@/components/shared/native-select"
 
 const schema = z.object({
   name: z.string().min(1, "Nombre requerido"),
@@ -71,12 +73,12 @@ export function CreateUserDialog() {
     })
   }
 
-  const selectClass =
-    "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button />}>Nuevo usuario</DialogTrigger>
+      <DialogTrigger render={<Button className="gap-1.5" />}>
+        <UserPlus className="size-4" />
+        Nuevo usuario
+      </DialogTrigger>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Nuevo usuario</DialogTitle>
@@ -84,17 +86,17 @@ export function CreateUserDialog() {
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
           <div className="space-y-2">
             <Label htmlFor="u-role">Rol</Label>
-            <select id="u-role" className={selectClass} {...register("role")}>
+            <Select id="u-role" {...register("role")}>
               {roleOptions.map((r) => (
                 <option key={r.v} value={r.v}>
                   {r.l}
                 </option>
               ))}
-            </select>
+            </Select>
             {!sub.isPaidEffective && (
-              <p className="text-xs text-neutral-500 mt-1">
+              <p className="mt-1 rounded-md bg-accent px-2.5 py-1.5 text-xs text-accent-foreground">
                 Solo puedes crear modelos en el plan gratuito.{" "}
-                <a href="/dashboard/subscribe" className="underline">
+                <a href="/dashboard/subscribe" className="font-medium underline underline-offset-2">
                   Suscribirse
                 </a>{" "}
                 para agregar admins y monitores.
@@ -137,7 +139,8 @@ export function CreateUserDialog() {
             <Textarea id="u-description" rows={2} {...register("description")} />
           </div>
           <DialogFooter>
-            <Button type="submit" disabled={isPending}>
+            <Button type="submit" disabled={isPending} className="gap-2">
+              {isPending && <Loader2 className="size-4 animate-spin" />}
               {isPending ? "Creando…" : "Crear usuario"}
             </Button>
           </DialogFooter>

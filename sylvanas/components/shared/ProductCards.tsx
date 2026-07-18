@@ -1,5 +1,7 @@
 "use client"
 import { useState } from "react"
+import { Loader2, AlertCircle } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
 type Product = {
   id: string
@@ -38,21 +40,30 @@ export function ProductCards<P extends Product>({
     <div>
       <div className="grid gap-4 md:grid-cols-3">
         {products.map(p => (
-          <div key={p.id} className="rounded-lg border p-6 flex flex-col">
-            <h3 className="text-lg font-semibold">{p.displayName}</h3>
-            <p className="text-2xl font-bold mt-2">{formatCop(p.priceCop)}</p>
-            <p className="text-sm text-neutral-500 mt-1">{p.subtitle}</p>
-            <button
+          <div
+            key={p.id}
+            className="flex flex-col rounded-xl border bg-card p-6 transition-colors hover:border-primary/40"
+          >
+            <h3 className="font-heading font-semibold tracking-tight">{p.displayName}</h3>
+            <p className="mt-2 text-2xl font-bold tabular-nums text-primary">{formatCop(p.priceCop)}</p>
+            <p className="mt-1 text-sm text-muted-foreground">{p.subtitle}</p>
+            <Button
               onClick={() => choose(p.id)}
               disabled={pending !== null}
-              className="mt-6 rounded bg-black text-white px-4 py-2 disabled:opacity-50"
+              className="mt-6 gap-2"
             >
+              {pending === p.id && <Loader2 className="size-4 animate-spin" />}
               {pending === p.id ? "Redirigiendo…" : "Elegir plan"}
-            </button>
+            </Button>
           </div>
         ))}
       </div>
-      {error && <p className="text-red-600 text-sm mt-3">{error}</p>}
+      {error && (
+        <p className="mt-3 flex items-center gap-1.5 text-sm text-destructive">
+          <AlertCircle className="size-4" />
+          {error}
+        </p>
+      )}
     </div>
   )
 }

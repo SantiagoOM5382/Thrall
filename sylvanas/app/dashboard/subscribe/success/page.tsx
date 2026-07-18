@@ -1,6 +1,9 @@
 "use client"
 import { useEffect, useState } from "react"
 import Link from "next/link"
+import { Loader2, CheckCircle2, XCircle, Clock, type LucideIcon } from "lucide-react"
+import { buttonVariants } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 
 type Latest = null | {
   id: string
@@ -39,32 +42,58 @@ export default function SuccessPage() {
     return () => { cancelled = true }
   }, [])
 
-  const card = 'mx-auto max-w-md mt-16 rounded-lg border p-8 text-center'
+  const card = 'mx-auto max-w-md mt-16 rounded-xl border p-8 text-center'
 
-  if (state === 'polling') return (
-    <div className={card}>
-      <p className="text-neutral-600">Estamos confirmando tu pago con Wompi…</p>
-      <div className="mt-4 h-1 w-full bg-neutral-200 overflow-hidden rounded"><div className="h-full w-1/3 bg-neutral-500 animate-pulse" /></div>
-    </div>
-  )
-  if (state === 'approved') return (
-    <div className={`${card} border-emerald-300 bg-emerald-50`}>
-      <h2 className="text-xl font-semibold">¡Suscripción activa!</h2>
-      <p className="text-neutral-700 mt-2">Tu plan ya está desbloqueado.</p>
-      <Link href="/dashboard" className="mt-4 inline-block rounded bg-black text-white px-4 py-2">Ir al dashboard</Link>
-    </div>
-  )
-  if (state === 'declined') return (
-    <div className={`${card} border-red-300 bg-red-50`}>
-      <h2 className="text-xl font-semibold">El pago no se completó</h2>
-      <Link href="/dashboard/subscribe" className="mt-4 inline-block rounded bg-black text-white px-4 py-2">Intentar de nuevo</Link>
-    </div>
-  )
+  const CONTENT: Record<UiState, { icon: LucideIcon; tone: string; title: string; body: string; cta: { href: string; label: string } | null }> = {
+    polling: {
+      icon: Loader2,
+      tone: "bg-muted text-muted-foreground",
+      title: "Confirmando tu pago",
+      body: "Estamos verificando el pago con Wompi. Esto no debería tardar más de unos segundos.",
+      cta: null,
+    },
+    approved: {
+      icon: CheckCircle2,
+      tone: "bg-positive/15 text-positive",
+      title: "¡Pago aprobado!",
+      body: "Tu compra ya está activa.",
+      cta: { href: "/dashboard", label: "Ir al dashboard" },
+    },
+    declined: {
+      icon: XCircle,
+      tone: "bg-destructive/15 text-destructive",
+      title: "El pago no se completó",
+      body: "Wompi rechazó o canceló la transacción. No se te realizó ningún cobro.",
+      cta: { href: "/dashboard/subscribe", label: "Intentar de nuevo" },
+    },
+    timeout: {
+      icon: Clock,
+      tone: "bg-accent text-accent-foreground",
+      title: "Wompi sigue procesando",
+      body: "Puede tardar unos minutos más en confirmarse. Te avisaremos apenas esté listo — no es necesario que esperes aquí.",
+      cta: { href: "/dashboard", label: "Ir al dashboard" },
+    },
+  }
+
+  const { icon: Icon, tone, title, body, cta } = CONTENT[state]
+
   return (
-    <div className={`${card} border-amber-300 bg-amber-50`}>
-      <h2 className="text-xl font-semibold">Wompi sigue procesando</h2>
-      <p className="text-neutral-700 mt-2">Te avisaremos cuando confirme. Puedes volver al dashboard.</p>
-      <Link href="/dashboard" className="mt-4 inline-block rounded bg-black text-white px-4 py-2">Ir al dashboard</Link>
+    <div className={card}>
+      <span className={cn("mx-auto flex size-14 items-center justify-center rounded-full", tone)}>
+        <Icon className={cn("size-6", state === "polling" && "animate-spin")} />
+      </span>
+      <h2 className="mt-4 text-xl font-semibold">{title}</h2>
+      <p className="mt-2 text-muted-foreground">{body}</p>
+      {state === "polling" && (
+        <div className="mt-4 h-1 w-full overflow-hidden rounded bg-muted">
+          <div className="h-full w-1/3 animate-pulse bg-primary" />
+        </div>
+      )}
+      {cta && (
+        <Link href={cta.href} className={cn(buttonVariants(), "mt-5")}>
+          {cta.label}
+        </Link>
+      )}
     </div>
   )
 }

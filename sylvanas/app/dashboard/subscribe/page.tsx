@@ -1,3 +1,4 @@
+import { CheckCircle2 } from "lucide-react"
 import { getSubscription } from "@/lib/subscription-server"
 import { apiFetch } from "@/lib/api"
 import { ProductCards } from "@/components/shared/ProductCards"
@@ -23,9 +24,9 @@ export default async function SubscribePage() {
 
   if (sub.isGrandfathered) {
     return (
-      <div className="mx-auto max-w-2xl mt-16 rounded-lg border p-8 text-center">
+      <div className="mx-auto mt-16 max-w-2xl rounded-xl border bg-card p-8 text-center">
         <h2 className="text-xl font-semibold">Cuenta especial</h2>
-        <p className="text-neutral-600 mt-2">Tu cuenta no requiere suscripción.</p>
+        <p className="mt-2 text-muted-foreground">Tu cuenta no requiere suscripción.</p>
       </div>
     )
   }
@@ -33,16 +34,23 @@ export default async function SubscribePage() {
   const isPaid = sub.isPaidEffective && sub.tier === "paid"
 
   return (
-    <div className="mx-auto max-w-4xl py-8 space-y-8">
+    <div className="mx-auto max-w-4xl space-y-8">
       {isPaid && sub.paidUntil && (
-        <section className="rounded-lg border bg-emerald-50 p-6">
-          <h2 className="text-lg font-semibold">Suscripción activa</h2>
-          <p className="text-neutral-700 mt-1">Tu plan vence el <b>{formatDate(sub.paidUntil)}</b>.</p>
-          <p className="text-sm text-neutral-500 mt-2">Puedes renovar o cambiar de plan; los días se acumulan.</p>
+        <section className="flex items-start gap-3 rounded-xl border bg-positive/10 p-6">
+          <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-positive" />
+          <div>
+            <h2 className="text-lg font-semibold">Suscripción activa</h2>
+            <p className="mt-1 text-foreground/80">
+              Tu plan vence el <b className="tabular-nums">{formatDate(sub.paidUntil)}</b>.
+            </p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Puedes renovar o cambiar de plan; los días se acumulan.
+            </p>
+          </div>
         </section>
       )}
       <section>
-        <h1 className="text-2xl font-semibold mb-4">
+        <h1 className="mb-4 text-2xl font-semibold tracking-tight">
           {isPaid ? "Renovar o cambiar plan" : "Elige tu plan"}
         </h1>
         <ProductCards

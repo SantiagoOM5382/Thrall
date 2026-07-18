@@ -1,5 +1,7 @@
+import { Coins } from "lucide-react"
 import { apiFetch } from "@/lib/api"
 import { ProductCards } from "@/components/shared/ProductCards"
+import { StatCard } from "@/components/shared/stat-card"
 import { purchaseTokens } from "./actions"
 
 type TokenProduct = {
@@ -19,20 +21,30 @@ export default async function TokensPage() {
   ])
 
   return (
-    <div className="mx-auto max-w-4xl py-8 space-y-8">
-      <section className="rounded-lg border bg-neutral-50 p-6">
-        <h2 className="text-lg font-semibold">Tu saldo</h2>
-        <p className="text-3xl font-bold mt-1">{wallet.tokensBalance} tokens</p>
-        {wallet.tokenDiscountPercent > 0 && (
-          <p className="text-sm text-emerald-700 mt-2">
-            Tienes {wallet.tokenDiscountPercent}% de descuento en compras de tokens por tu plan activo.
-          </p>
-        )}
-      </section>
+    <div className="mx-auto max-w-4xl space-y-8">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">Tokens</h1>
+        <p className="mt-1 text-muted-foreground">
+          Compra tokens y úsalos para destacar a tus modelos en la vitrina pública.
+        </p>
+      </div>
+
+      <StatCard
+        label="Tu saldo"
+        value={`${wallet.tokensBalance} tokens`}
+        icon={Coins}
+        tone="gold"
+        hint={
+          wallet.tokenDiscountPercent > 0
+            ? `${wallet.tokenDiscountPercent}% de descuento en compras por tu plan activo`
+            : undefined
+        }
+      />
+
       <section>
-        <h1 className="text-2xl font-semibold mb-4">Comprar tokens</h1>
+        <h2 className="mb-4 text-lg font-medium">Comprar tokens</h2>
         <ProductCards
-          products={products.map(p => ({ ...p, subtitle: `${p.tokensGranted} tokens` }))}
+          products={products.map((p) => ({ ...p, subtitle: `${p.tokensGranted} tokens` }))}
           purchaseAction={purchaseTokens}
         />
       </section>

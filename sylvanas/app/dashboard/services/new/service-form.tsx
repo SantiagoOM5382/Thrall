@@ -1,19 +1,20 @@
 "use client"
 
-import { forwardRef } from "react"
 import { useRouter } from "next/navigation"
 import { useForm, useFieldArray } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { toast } from "sonner"
-import { Loader2, Trash2, Plus, ChevronDown, Clock3 } from "lucide-react"
+import { Loader2, Trash2, Plus, Clock3 } from "lucide-react"
 import { createService } from "../actions"
-import { calcEarnings, formatCOP, formatDuration, cn } from "@/lib/utils"
+import { calcEarnings, formatCOP, formatDuration } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent } from "@/components/ui/card"
+import { NativeSelect as Select } from "@/components/shared/native-select"
+import { MoneyInput } from "@/components/shared/money-input"
 import { DateTimeField } from "./datetime-field"
 
 const schema = z
@@ -44,40 +45,6 @@ type FormValues = z.input<typeof schema>
 function toBogotaMs(local: string): number {
   return new Date(`${local}:00-05:00`).getTime()
 }
-
-function Select({
-  className,
-  children,
-  ...props
-}: React.SelectHTMLAttributes<HTMLSelectElement>) {
-  return (
-    <div className="relative">
-      <select
-        className={cn(
-          "flex h-9 w-full appearance-none rounded-md border border-input bg-transparent px-3 py-1 pr-8 text-sm shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring",
-          className
-        )}
-        {...props}
-      >
-        {children}
-      </select>
-      <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-    </div>
-  )
-}
-
-const MoneyInput = forwardRef<HTMLInputElement, React.ComponentProps<typeof Input>>(
-  function MoneyInput({ className, ...props }, ref) {
-    return (
-      <div className="relative">
-        <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-muted-foreground">
-          $
-        </span>
-        <Input ref={ref} type="number" min={1} step={1} className={cn("pl-6 tabular-nums", className)} {...props} />
-      </div>
-    )
-  }
-)
 
 export function ServiceForm({
   models,

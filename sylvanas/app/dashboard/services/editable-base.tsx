@@ -2,10 +2,11 @@
 
 import { useState, useTransition } from "react"
 import { toast } from "sonner"
+import { Pencil, Loader2 } from "lucide-react"
 import { editServiceBase } from "./edit-service-action"
 import { formatCOP } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+import { MoneyInput } from "@/components/shared/money-input"
 
 export function EditableBase({ id, value }: { id: string; value: number }) {
   const [editing, setEditing] = useState(false)
@@ -42,7 +43,7 @@ export function EditableBase({ id, value }: { id: string; value: number }) {
             setEditing(true)
           }}
         >
-          ✏️
+          <Pencil className="size-3.5 text-muted-foreground" />
         </Button>
       </span>
     )
@@ -50,16 +51,14 @@ export function EditableBase({ id, value }: { id: string; value: number }) {
 
   return (
     <span className="inline-flex items-center justify-end gap-1">
-      <Input
-        type="number"
-        min={1}
-        step={1}
+      <MoneyInput
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         className="h-8 w-28"
       />
-      <Button type="button" size="sm" onClick={save} disabled={isPending}>
-        {isPending ? "…" : "Guardar"}
+      <Button type="button" size="sm" onClick={save} disabled={isPending} className="gap-1.5">
+        {isPending && <Loader2 className="size-3.5 animate-spin" />}
+        {isPending ? "" : "Guardar"}
       </Button>
       <Button type="button" variant="ghost" size="sm" onClick={() => setEditing(false)}>
         Cancelar

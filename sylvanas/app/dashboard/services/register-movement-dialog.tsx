@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { toast } from "sonner"
+import { Loader2 } from "lucide-react"
 import { createFine, createLoan } from "./fine-loan-actions"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -12,6 +13,8 @@ import { Label } from "@/components/ui/label"
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger,
 } from "@/components/ui/dialog"
+import { NativeSelect as Select } from "@/components/shared/native-select"
+import { MoneyInput } from "@/components/shared/money-input"
 
 const schema = z.object({
   modelId: z.string().min(1, "Selecciona una modelo"),
@@ -50,9 +53,6 @@ export function RegisterMovementDialog({
     })
   }
 
-  const selectClass =
-    "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger render={<Button variant="outline" />}>{label}</DialogTrigger>
@@ -61,15 +61,15 @@ export function RegisterMovementDialog({
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
           <div className="space-y-2">
             <Label htmlFor="mv-model">Modelo</Label>
-            <select id="mv-model" className={selectClass} {...register("modelId")}>
+            <Select id="mv-model" {...register("modelId")}>
               <option value="">Selecciona…</option>
               {models.map((m) => (<option key={m.id} value={m.id}>{m.name}</option>))}
-            </select>
+            </Select>
             {errors.modelId && <p className="text-sm text-destructive">{errors.modelId.message}</p>}
           </div>
           <div className="space-y-2">
             <Label htmlFor="mv-amount">Monto (COP)</Label>
-            <Input id="mv-amount" type="number" min={1} step={1} {...register("amount")} />
+            <MoneyInput id="mv-amount" {...register("amount")} />
             {errors.amount && <p className="text-sm text-destructive">{errors.amount.message}</p>}
           </div>
           <div className="space-y-2">
@@ -78,7 +78,8 @@ export function RegisterMovementDialog({
             {errors.reason && <p className="text-sm text-destructive">{errors.reason.message}</p>}
           </div>
           <DialogFooter>
-            <Button type="submit" disabled={isPending}>
+            <Button type="submit" disabled={isPending} className="gap-2">
+              {isPending && <Loader2 className="size-4 animate-spin" />}
               {isPending ? "Guardando…" : "Guardar"}
             </Button>
           </DialogFooter>

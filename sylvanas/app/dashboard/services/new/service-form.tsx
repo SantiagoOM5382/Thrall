@@ -5,8 +5,9 @@ import { useForm, useFieldArray } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { toast } from "sonner"
+import { Loader2, Trash2, Plus, ChevronDown } from "lucide-react"
 import { createService } from "../actions"
-import { calcEarnings, formatCOP } from "@/lib/utils"
+import { calcEarnings, formatCOP, cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -40,6 +41,27 @@ type FormValues = z.input<typeof schema>
 // datetime-local value (e.g. "2024-01-15T14:30") interpreted as Bogota time.
 function toBogotaMs(local: string): number {
   return new Date(`${local}:00-05:00`).getTime()
+}
+
+function Select({
+  className,
+  children,
+  ...props
+}: React.SelectHTMLAttributes<HTMLSelectElement>) {
+  return (
+    <div className="relative">
+      <select
+        className={cn(
+          "flex h-9 w-full appearance-none rounded-md border border-input bg-transparent px-3 py-1 pr-8 text-sm shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring",
+          className
+        )}
+        {...props}
+      >
+        {children}
+      </select>
+      <ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+    </div>
+  )
 }
 
 export function ServiceForm({
@@ -89,21 +111,18 @@ export function ServiceForm({
     router.refresh()
   }
 
-  const selectClass =
-    "flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
-
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-5" noValidate>
       <div className="space-y-2">
         <Label htmlFor="modelId">Modelo</Label>
-        <select id="modelId" className={selectClass} {...register("modelId")}>
+        <Select id="modelId" {...register("modelId")}>
           <option value="">Selecciona…</option>
           {models.map((m) => (
             <option key={m.id} value={m.id}>
               {m.name}
             </option>
           ))}
-        </select>
+        </Select>
         {errors.modelId && (
           <p className="text-sm text-destructive">{errors.modelId.message}</p>
         )}
@@ -134,6 +153,7 @@ export function ServiceForm({
             type="number"
             min={1}
             step={1}
+            className="tabular-nums"
             {...register("basePrice")}
           />
           {errors.basePrice && (
@@ -142,14 +162,14 @@ export function ServiceForm({
         </div>
         <div className="space-y-2">
           <Label htmlFor="payMethodId">Método de pago</Label>
-          <select id="payMethodId" className={selectClass} {...register("payMethodId")}>
+          <Select id="payMethodId" {...register("payMethodId")}>
             <option value="">Selecciona…</option>
             {payMethods.map((p) => (
               <option key={p.id} value={p.id}>
                 {p.label}
               </option>
             ))}
-          </select>
+          </Select>
           {errors.payMethodId && (
             <p className="text-sm text-destructive">{errors.payMethodId.message}</p>
           )}
@@ -168,13 +188,15 @@ export function ServiceForm({
             type="button"
             variant="outline"
             size="sm"
+            className="gap-1.5"
             onClick={() => append({ description: "", amount: 0 })}
           >
+            <Plus className="size-3.5" />
             Agregar adicional
           </Button>
         </div>
         {fields.map((field, idx) => (
-          <div key={field.id} className="flex items-start gap-2">
+          <div key={field.id} className="flex items-start gap-2 rounded-lg border p-2.5">
             <div className="flex-1">
               <Input
                 placeholder="Descripción"
@@ -192,6 +214,7 @@ export function ServiceForm({
                 min={1}
                 step={1}
                 placeholder="Monto"
+                className="tabular-nums"
                 {...register(`extras.${idx}.amount`)}
               />
               {errors.extras?.[idx]?.amount && (
@@ -204,37 +227,39 @@ export function ServiceForm({
               type="button"
               variant="ghost"
               size="sm"
+              aria-label="Quitar adicional"
               onClick={() => remove(idx)}
             >
-              Quitar
+              <Trash2 className="size-4 text-muted-foreground" />
             </Button>
           </div>
         ))}
       </div>
 
       <Card>
-        <CardContent className="grid grid-cols-2 gap-2 py-4 text-sm sm:grid-cols-4">
+        <CardContent className="grid grid-cols-2 gap-3 py-4 text-sm sm:grid-cols-4">
           <div>
             <p className="text-muted-foreground">Modelo base</p>
-            <p className="font-medium">{formatCOP(earnings.modelBase)}</p>
+            <p className="mt-0.5 font-medium tabular-nums">{formatCOP(earnings.modelBase)}</p>
           </div>
           <div>
             <p className="text-muted-foreground">Extras</p>
-            <p className="font-medium">{formatCOP(earnings.modelExtras)}</p>
+            <p className="mt-0.5 font-medium tabular-nums">{formatCOP(earnings.modelExtras)}</p>
           </div>
           <div>
             <p className="text-muted-foreground">Total modelo</p>
-            <p className="font-medium">{formatCOP(earnings.modelTotal)}</p>
+            <p className="mt-0.5 font-semibold tabular-nums text-positive">{formatCOP(earnings.modelTotal)}</p>
           </div>
           <div>
             <p className="text-muted-foreground">Empresa</p>
-            <p className="font-medium">{formatCOP(earnings.company)}</p>
+            <p className="mt-0.5 font-semibold tabular-nums text-primary">{formatCOP(earnings.company)}</p>
           </div>
         </CardContent>
       </Card>
 
       <div className="flex gap-3">
-        <Button type="submit" disabled={isSubmitting}>
+        <Button type="submit" disabled={isSubmitting} className="gap-2">
+          {isSubmitting && <Loader2 className="size-4 animate-spin" />}
           {isSubmitting ? "Guardando…" : "Crear servicio"}
         </Button>
         <Button

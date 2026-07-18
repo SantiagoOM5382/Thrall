@@ -1,13 +1,14 @@
 "use client"
 
+import { forwardRef } from "react"
 import { useRouter } from "next/navigation"
 import { useForm, useFieldArray } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { toast } from "sonner"
-import { Loader2, Trash2, Plus, ChevronDown } from "lucide-react"
+import { Loader2, Trash2, Plus, ChevronDown, Clock3 } from "lucide-react"
 import { createService } from "../actions"
-import { calcEarnings, formatCOP, cn } from "@/lib/utils"
+import { calcEarnings, formatCOP, formatDuration, cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -65,6 +66,19 @@ function Select({
   )
 }
 
+const MoneyInput = forwardRef<HTMLInputElement, React.ComponentProps<typeof Input>>(
+  function MoneyInput({ className, ...props }, ref) {
+    return (
+      <div className="relative">
+        <span className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-sm text-muted-foreground">
+          $
+        </span>
+        <Input ref={ref} type="number" min={1} step={1} className={cn("pl-6 tabular-nums", className)} {...props} />
+      </div>
+    )
+  }
+)
+
 export function ServiceForm({
   models,
   payMethods,
@@ -89,6 +103,12 @@ export function ServiceForm({
   const basePrice = Number(watch("basePrice")) || 0
   const extraAmounts = (watch("extras") ?? []).map((e) => Number(e.amount) || 0)
   const earnings = calcEarnings(basePrice, extraAmounts)
+
+  const startTimeValue = watch("startTime")
+  const endTimeValue = watch("endTime")
+  const startMs = startTimeValue ? new Date(startTimeValue).getTime() : null
+  const endMs = endTimeValue ? new Date(endTimeValue).getTime() : null
+  const duration = startMs && endMs && endMs > startMs ? formatDuration(startMs, endMs) : null
 
   async function onSubmit(values: FormValues) {
     const res = await createService({
@@ -146,17 +166,17 @@ export function ServiceForm({
         </div>
       </div>
 
+      {duration && (
+        <p className="-mt-3 flex items-center gap-1.5 text-sm text-muted-foreground">
+          <Clock3 className="size-3.5" />
+          Duración: <span className="font-medium text-foreground">{duration}</span>
+        </p>
+      )}
+
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="basePrice">Precio base (COP)</Label>
-          <Input
-            id="basePrice"
-            type="number"
-            min={1}
-            step={1}
-            className="tabular-nums"
-            {...register("basePrice")}
-          />
+          <MoneyInput id="basePrice" {...register("basePrice")} />
           {errors.basePrice && (
             <p className="text-sm text-destructive">{errors.basePrice.message}</p>
           )}
@@ -210,14 +230,7 @@ export function ServiceForm({
               )}
             </div>
             <div className="w-36">
-              <Input
-                type="number"
-                min={1}
-                step={1}
-                placeholder="Monto"
-                className="tabular-nums"
-                {...register(`extras.${idx}.amount`)}
-              />
+              <MoneyInput placeholder="Monto" {...register(`extras.${idx}.amount`)} />
               {errors.extras?.[idx]?.amount && (
                 <p className="mt-1 text-sm text-destructive">
                   {errors.extras[idx]?.amount?.message}

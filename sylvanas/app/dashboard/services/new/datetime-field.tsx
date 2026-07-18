@@ -2,10 +2,10 @@
 
 import { useState } from "react"
 import { Controller, type Control, type FieldValues, type Path } from "react-hook-form"
-import { CalendarIcon } from "lucide-react"
+import { CalendarIcon, ClockIcon } from "lucide-react"
 import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover"
 import { Calendar } from "@/components/ui/calendar"
-import { Input } from "@/components/ui/input"
+import { TimePicker } from "@/components/ui/time-picker"
 import { cn } from "@/lib/utils"
 
 function pad(n: number): string {
@@ -28,11 +28,14 @@ function toLocalValue(date: Date, time: string): string {
   return `${y}-${m}-${d}T${time || "00:00"}`
 }
 
+const triggerClass =
+  "flex h-9 items-center gap-2 rounded-md border border-input bg-transparent px-3 text-sm shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring"
+
 /**
- * Replaces the native <input type="datetime-local"> — its calendar popup
- * can't be restyled by any browser and looks noticeably worse than the rest
- * of the app. Pairs a custom Calendar in a Popover for the date with a
- * native <input type="time"> (renders cleanly, no need to reinvent it).
+ * Replaces the native <input type="datetime-local"> — its calendar/time
+ * popup can't be restyled by any browser and looked noticeably worse than
+ * the rest of the app. Pairs a custom Calendar for the date with a custom
+ * TimePicker for the time, both in matching Popovers.
  */
 export function DateTimeField<T extends FieldValues>({
   control,
@@ -45,7 +48,8 @@ export function DateTimeField<T extends FieldValues>({
   id: string
   invalid?: boolean
 }) {
-  const [open, setOpen] = useState(false)
+  const [dateOpen, setDateOpen] = useState(false)
+  const [timeOpen, setTimeOpen] = useState(false)
 
   return (
     <Controller
@@ -57,14 +61,11 @@ export function DateTimeField<T extends FieldValues>({
 
         return (
           <div className="flex gap-2">
-            <Popover open={open} onOpenChange={setOpen}>
+            <Popover open={dateOpen} onOpenChange={setDateOpen}>
               <PopoverTrigger
                 id={id}
                 type="button"
-                className={cn(
-                  "flex h-9 flex-1 items-center gap-2 rounded-md border border-input bg-transparent px-3 text-sm shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                  invalid && "border-destructive"
-                )}
+                className={cn(triggerClass, "flex-1", invalid && "border-destructive")}
               >
                 <CalendarIcon className="size-4 shrink-0 text-muted-foreground" />
                 {date ? (
@@ -78,18 +79,28 @@ export function DateTimeField<T extends FieldValues>({
                   selected={date}
                   onSelect={(d) => {
                     field.onChange(toLocalValue(d, time || "12:00"))
-                    setOpen(false)
+                    setDateOpen(false)
                   }}
                 />
               </PopoverContent>
             </Popover>
-            <Input
-              type="time"
-              aria-label="Hora"
-              className="w-28 tabular-nums"
-              value={time}
-              onChange={(e) => field.onChange(toLocalValue(date ?? new Date(), e.target.value))}
-            />
+
+            <Popover open={timeOpen} onOpenChange={setTimeOpen}>
+              <PopoverTrigger
+                type="button"
+                aria-label="Hora"
+                className={cn(triggerClass, "w-24 tabular-nums", invalid && "border-destructive")}
+              >
+                <ClockIcon className="size-4 shrink-0 text-muted-foreground" />
+                {time || <span className="text-muted-foreground">--:--</span>}
+              </PopoverTrigger>
+              <PopoverContent align="start" className="p-1.5">
+                <TimePicker
+                  value={time}
+                  onChange={(t) => field.onChange(toLocalValue(date ?? new Date(), t))}
+                />
+              </PopoverContent>
+            </Popover>
           </div>
         )
       }}

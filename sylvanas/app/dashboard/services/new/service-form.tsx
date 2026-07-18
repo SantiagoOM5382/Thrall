@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Card, CardContent } from "@/components/ui/card"
+import { DateTimeField } from "./datetime-field"
 
 const schema = z
   .object({
@@ -131,14 +132,14 @@ export function ServiceForm({
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2">
           <Label htmlFor="startTime">Inicio</Label>
-          <Input id="startTime" type="datetime-local" {...register("startTime")} />
+          <DateTimeField control={control} name="startTime" id="startTime" invalid={!!errors.startTime} />
           {errors.startTime && (
             <p className="text-sm text-destructive">{errors.startTime.message}</p>
           )}
         </div>
         <div className="space-y-2">
           <Label htmlFor="endTime">Fin</Label>
-          <Input id="endTime" type="datetime-local" {...register("endTime")} />
+          <DateTimeField control={control} name="endTime" id="endTime" invalid={!!errors.endTime} />
           {errors.endTime && (
             <p className="text-sm text-destructive">{errors.endTime.message}</p>
           )}

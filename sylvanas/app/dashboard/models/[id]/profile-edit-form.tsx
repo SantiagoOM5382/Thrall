@@ -5,6 +5,7 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { toast } from "sonner"
+import { Loader2 } from "lucide-react"
 import { updateModelProfile } from "./profile-actions"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -48,7 +49,7 @@ export function ProfileEditForm({
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="max-w-xl space-y-4" noValidate>
+    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="p-name">Nombre</Label>
@@ -62,18 +63,19 @@ export function ProfileEditForm({
         </div>
         <div className="space-y-2">
           <Label htmlFor="p-phone">Teléfono</Label>
-          <Input id="p-phone" {...register("phone")} />
+          <Input id="p-phone" placeholder="Sin definir" {...register("phone")} />
         </div>
         <div className="space-y-2">
           <Label htmlFor="p-telegram">Telegram</Label>
-          <Input id="p-telegram" {...register("telegram")} />
+          <Input id="p-telegram" placeholder="Sin definir" {...register("telegram")} />
         </div>
       </div>
       <div className="space-y-2">
         <Label htmlFor="p-description">Descripción</Label>
-        <Textarea id="p-description" rows={3} {...register("description")} />
+        <Textarea id="p-description" rows={3} placeholder="Sin definir" {...register("description")} />
       </div>
-      <Button type="submit" disabled={isPending}>
+      <Button type="submit" disabled={isPending} className="gap-2">
+        {isPending && <Loader2 className="size-4 animate-spin" />}
         {isPending ? "Guardando…" : "Guardar cambios"}
       </Button>
     </form>

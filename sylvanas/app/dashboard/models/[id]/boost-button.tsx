@@ -2,7 +2,9 @@
 
 import { useState, useTransition } from "react"
 import { toast } from "sonner"
+import { Sparkles, Loader2, Coins } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { NativeSelect as Select } from "@/components/shared/native-select"
 import { useWallet } from "@/lib/wallet-context"
 import { boostModel } from "../actions"
 
@@ -21,33 +23,40 @@ export function BoostButton({ modelId, services }: { modelId: string; services: 
 
   if (services.length === 0) return null
 
+  const service = services.find((s) => s.id === selected)
+  const canAfford = service ? wallet.tokensBalance >= service.tokensCost : false
+
   function onClick() {
     startTransition(async () => {
       const res = await boostModel(modelId, selected)
       if (res.error) toast.error(res.error)
       else {
-        toast.success("Modelo destacado")
+        toast.success("Modelo destacada en la vitrina")
         wallet.refetch()
       }
     })
   }
 
   return (
-    <div className="flex items-center gap-2">
-      <select
-        value={selected}
-        onChange={(e) => setSelected(e.target.value)}
-        className="rounded border px-2 py-1 text-sm"
-      >
+    <div className="flex flex-wrap items-center gap-2">
+      <Select value={selected} onChange={(e) => setSelected(e.target.value)} className="w-56">
         {services.map((s) => (
           <option key={s.id} value={s.id}>
             {s.displayName} — {s.tokensCost} tokens
           </option>
         ))}
-      </select>
-      <Button type="button" size="sm" onClick={onClick} disabled={isPending}>
-        {isPending ? "…" : "Destacar"}
+      </Select>
+      <Button type="button" onClick={onClick} disabled={isPending || !canAfford} className="gap-1.5">
+        {isPending ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
+        Destacar
       </Button>
+      <span className="flex items-center gap-1 text-xs text-muted-foreground">
+        <Coins className="size-3.5" />
+        Saldo: {wallet.tokensBalance} tokens
+      </span>
+      {!canAfford && (
+        <span className="text-xs text-destructive">Saldo insuficiente</span>
+      )}
     </div>
   )
 }

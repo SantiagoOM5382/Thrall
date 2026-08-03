@@ -69539,11 +69539,11 @@ var TRIAL_DAYS = 10;
 authRoutes.post("/signup", zValidator("json", signupSchema), async (c) => {
   const data = c.req.valid("json");
   const emailTaken = await db.query.users.findFirst({ where: eq(users.email, data.email) });
-  if (emailTaken) return c.json({ error: "email_in_use" }, 409);
+  if (emailTaken) return c.json({ error: "conflict" }, 409);
   const nameTaken = await db.query.brands.findFirst({
     where: sql`lower(${brands.name}) = lower(${data.brandName})`
   });
-  if (nameTaken) return c.json({ error: "brand_name_in_use" }, 409);
+  if (nameTaken) return c.json({ error: "conflict" }, 409);
   const now = Date.now();
   const brandId = newId();
   const userId = newId();
@@ -69585,11 +69585,8 @@ authRoutes.post("/signup", zValidator("json", signupSchema), async (c) => {
   } catch (err) {
     const message2 = err instanceof Error ? err.message : String(err);
     if (message2.includes("SQLITE_CONSTRAINT")) {
-      if (message2.includes("brands_name_lower_idx")) {
-        return c.json({ error: "brand_name_in_use" }, 409);
-      }
-      if (message2.includes("users_email_idx")) {
-        return c.json({ error: "email_in_use" }, 409);
+      if (message2.includes("brands_name_lower_idx") || message2.includes("users_email_idx")) {
+        return c.json({ error: "conflict" }, 409);
       }
     }
     throw err;
@@ -69655,8 +69652,8 @@ usersRoutes.get("/", async (c) => {
   const caller = c.get("user");
   const brandFilter = c.req.query("brandId");
   const all = await db.query.users.findMany({
-    where: (u, { and: and3, eq: eqFn, isNull: isNull4 }) => {
-      const conds = [isNull4(u.deletedAt)];
+    where: (u, { and: and3, eq: eqFn, isNull: isNull3 }) => {
+      const conds = [isNull3(u.deletedAt)];
       if (caller.role === "dev") {
         if (brandFilter) conds.push(eqFn(u.brandId, brandFilter));
       } else {
@@ -69706,7 +69703,7 @@ usersRoutes.post("/", zValidator("json", createSchema), async (c) => {
 });
 usersRoutes.get("/:id", async (c) => {
   const user = await db.query.users.findFirst({
-    where: (u, { and: and3, eq: eq2, isNull: isNull4 }) => and3(eq2(u.id, c.req.param("id")), isNull4(u.deletedAt))
+    where: (u, { and: and3, eq: eq2, isNull: isNull3 }) => and3(eq2(u.id, c.req.param("id")), isNull3(u.deletedAt))
   });
   if (!user) return c.json({ error: "Not found" }, 404);
   return c.json(omitPassword(user));
@@ -69714,7 +69711,7 @@ usersRoutes.get("/:id", async (c) => {
 usersRoutes.put("/:id", zValidator("json", updateSchema), async (c) => {
   const caller = c.get("user");
   const existing = await db.query.users.findFirst({
-    where: (u, { and: and3, eq: eq2, isNull: isNull4 }) => and3(eq2(u.id, c.req.param("id")), isNull4(u.deletedAt))
+    where: (u, { and: and3, eq: eq2, isNull: isNull3 }) => and3(eq2(u.id, c.req.param("id")), isNull3(u.deletedAt))
   });
   if (!existing) return c.json({ error: "Not found" }, 404);
   const data = c.req.valid("json");
@@ -69734,7 +69731,8 @@ usersRoutes.put("/:id", zValidator("json", updateSchema), async (c) => {
     }
   }
   const now = Date.now();
-  const patch = { ...data, updatedAt: now };
+  const { brandId: _stripBrandId, ...safeData } = data;
+  const patch = { ...safeData, updatedAt: now };
   if (data.password) patch.password = await hashPassword(data.password);
   await db.update(users).set(patch).where(eq(users.id, c.req.param("id")));
   await logAudit(db, { userId: caller.sub, action: "UPDATE", entity: "user", entityId: c.req.param("id") });
@@ -69747,7 +69745,7 @@ usersRoutes.delete("/:id", async (c) => {
     return c.json({ error: "Cannot delete own account" }, 400);
   }
   const existing = await db.query.users.findFirst({
-    where: (u, { and: and3, eq: eq2, isNull: isNull4 }) => and3(eq2(u.id, c.req.param("id")), isNull4(u.deletedAt))
+    where: (u, { and: and3, eq: eq2, isNull: isNull3 }) => and3(eq2(u.id, c.req.param("id")), isNull3(u.deletedAt))
   });
   if (!existing) return c.json({ error: "Not found" }, 404);
   const now = Date.now();
@@ -69760,6 +69758,7 @@ usersRoutes.delete("/:id", async (c) => {
 init_drizzle_orm();
 init_client();
 init_schema();
+init_requirePaid();
 
 // src/lib/wallet.ts
 function applyDiscount(priceCop, discountPercent) {
@@ -69774,44 +69773,59 @@ function computeBoostExpiry(now, durationHours) {
 var modelsRoutes = new Hono2();
 var InsufficientTokensError = class extends Error {
 };
+function toPublicModel(m, isBoosted, images) {
+  return {
+    id: m.id,
+    name: m.name,
+    description: m.description,
+    phone: m.phone,
+    telegram: m.telegram,
+    isBoosted,
+    images
+  };
+}
 modelsRoutes.get("/", async (c) => {
   const now = Date.now();
   const models = await db.query.users.findMany({
-    where: (u, { and: and3, eq: eq2, isNull: isNull4 }) => and3(eq2(u.role, "model"), eq2(u.isActive, 1), isNull4(u.deletedAt))
+    where: (u, { and: and3, eq: eq2, isNull: isNull3 }) => and3(eq2(u.role, "model"), eq2(u.isActive, 1), isNull3(u.deletedAt))
   });
   const activeBoosts = await db.select({ modelId: profileBoosts.modelId }).from(profileBoosts).where(gt(profileBoosts.endsAt, now));
   const boostedIds = new Set(activeBoosts.map((b) => b.modelId));
   const result = await Promise.all(
     models.map(async (m) => {
       const images = await db.query.userImages.findMany({
-        where: (img, { and: and3, eq: eq2, isNull: isNull4 }) => and3(eq2(img.userId, m.id), eq2(img.isActive, 1), isNull4(img.deletedAt)),
+        where: (img, { and: and3, eq: eq2, isNull: isNull3 }) => and3(eq2(img.userId, m.id), eq2(img.isActive, 1), isNull3(img.deletedAt)),
         orderBy: (img, { asc: asc2 }) => [asc2(img.sortOrder)]
       });
-      const { password: _, ...model } = m;
-      return {
-        ...model,
-        isBoosted: boostedIds.has(m.id),
-        images: images.map((i) => ({ id: i.id, url: i.url, sortOrder: i.sortOrder }))
-      };
+      return toPublicModel(
+        m,
+        boostedIds.has(m.id),
+        images.map((i) => ({ id: i.id, url: i.url, sortOrder: i.sortOrder }))
+      );
     })
   );
   result.sort((a, b) => Number(b.isBoosted) - Number(a.isBoosted));
   return c.json(result);
 });
 modelsRoutes.get("/:id", async (c) => {
+  const now = Date.now();
   const model = await db.query.users.findFirst({
-    where: (u, { and: and3, eq: eq2, isNull: isNull4 }) => and3(eq2(u.id, c.req.param("id")), eq2(u.role, "model"), eq2(u.isActive, 1), isNull4(u.deletedAt))
+    where: (u, { and: and3, eq: eq2, isNull: isNull3 }) => and3(eq2(u.id, c.req.param("id")), eq2(u.role, "model"), eq2(u.isActive, 1), isNull3(u.deletedAt))
   });
   if (!model) return c.json({ error: "Not found" }, 404);
   const images = await db.query.userImages.findMany({
-    where: (img, { and: and3, eq: eq2, isNull: isNull4 }) => and3(eq2(img.userId, model.id), eq2(img.isActive, 1), isNull4(img.deletedAt)),
+    where: (img, { and: and3, eq: eq2, isNull: isNull3 }) => and3(eq2(img.userId, model.id), eq2(img.isActive, 1), isNull3(img.deletedAt)),
     orderBy: (img, { asc: asc2 }) => [asc2(img.sortOrder)]
   });
-  const { password: _, ...rest } = model;
-  return c.json({ ...rest, images: images.map((i) => ({ id: i.id, url: i.url, sortOrder: i.sortOrder })) });
+  const activeBoost = await db.select({ id: profileBoosts.id }).from(profileBoosts).where(and(eq(profileBoosts.modelId, model.id), gt(profileBoosts.endsAt, now))).limit(1);
+  return c.json(toPublicModel(
+    model,
+    activeBoost.length > 0,
+    images.map((i) => ({ id: i.id, url: i.url, sortOrder: i.sortOrder }))
+  ));
 });
 var boostSchema = external_exports.object({ topServiceId: external_exports.string().min(1) });
-modelsRoutes.post("/:id/boost", authMiddleware, zValidator("json", boostSchema), async (c) => {
+modelsRoutes.post("/:id/boost", authMiddleware, requirePaid, zValidator("json", boostSchema), async (c) => {
   const user = c.get("user");
   const { topServiceId } = c.req.valid("json");
   const modelId = c.req.param("id");
@@ -69828,24 +69842,30 @@ modelsRoutes.post("/:id/boost", authMiddleware, zValidator("json", boostSchema),
       const wallet = await tx.query.brandWallets.findFirst({
         where: eq(brandWallets.brandId, user.brandId)
       });
-      const currentBalance = wallet?.tokensBalance ?? 0;
-      if (currentBalance < service.tokensCost) {
-        throw new InsufficientTokensError();
-      }
       const now = Date.now();
       const endsAt = computeBoostExpiry(now, service.durationHours);
-      const newBalance = currentBalance - service.tokensCost;
       const boostId = newId();
+      let newBalance;
       if (wallet) {
-        await tx.update(brandWallets).set({ tokensBalance: newBalance, updatedAt: now }).where(eq(brandWallets.id, wallet.id));
+        const upd = await tx.update(brandWallets).set({
+          tokensBalance: sql`${brandWallets.tokensBalance} - ${service.tokensCost}`,
+          updatedAt: now
+        }).where(and(
+          eq(brandWallets.id, wallet.id),
+          gt(brandWallets.tokensBalance, service.tokensCost - 1)
+        )).returning({ tokensBalance: brandWallets.tokensBalance });
+        if (upd.length === 0) throw new InsufficientTokensError();
+        newBalance = upd[0].tokensBalance;
       } else {
+        if (service.tokensCost > 0) throw new InsufficientTokensError();
         await tx.insert(brandWallets).values({
           id: newId(),
           brandId: user.brandId,
-          tokensBalance: newBalance,
+          tokensBalance: 0,
           createdAt: now,
           updatedAt: now
         });
+        newBalance = 0;
       }
       await tx.insert(profileBoosts).values({
         id: boostId,
@@ -71371,7 +71391,14 @@ imagesRoutes.use("*", authMiddleware);
 imagesRoutes.post("/users/:userId", async (c) => {
   const caller = c.get("user");
   const { userId } = c.req.param();
+  const targetUser = await db.query.users.findFirst({
+    where: (u, { and: andFn, eq: eqFn, isNull: isNull3 }) => andFn(eqFn(u.id, userId), isNull3(u.deletedAt))
+  });
+  if (!targetUser) return c.json({ error: "Not found" }, 404);
   if (caller.role === "model" && caller.sub !== userId) {
+    return c.json({ error: "Forbidden" }, 403);
+  }
+  if (caller.role !== "dev" && targetUser.brandId !== caller.brandId) {
     return c.json({ error: "Forbidden" }, 403);
   }
   const body = await c.req.parseBody();
@@ -71402,16 +71429,22 @@ imagesRoutes.post("/users/:userId", async (c) => {
 });
 imagesRoutes.delete("/:id", async (c) => {
   const caller = c.get("user");
-  if (!["admin", "monitor"].includes(caller.role)) {
+  if (!["admin", "monitor", "dev"].includes(caller.role)) {
     return c.json({ error: "Forbidden" }, 403);
   }
-  const existing = await db.query.userImages.findFirst({
-    where: (img, { and: and3, eq: eq2, isNull: isNullOp }) => and3(eq2(img.id, c.req.param("id")), isNullOp(img.deletedAt))
-  });
+  const imageId = c.req.param("id");
+  const rows = await db.select({
+    imageId: userImages.id,
+    imageBrandId: users.brandId
+  }).from(userImages).innerJoin(users, eq(users.id, userImages.userId)).where(and(eq(userImages.id, imageId))).limit(1);
+  const existing = rows[0];
   if (!existing) return c.json({ error: "Not found" }, 404);
+  if (caller.role !== "dev" && existing.imageBrandId !== caller.brandId) {
+    return c.json({ error: "Forbidden" }, 403);
+  }
   const now = Date.now();
-  await db.update(userImages).set({ deletedAt: now, updatedAt: now, isActive: 0 }).where(eq(userImages.id, c.req.param("id")));
-  await logAudit(db, { userId: caller.sub, action: "DELETE", entity: "image", entityId: c.req.param("id") });
+  await db.update(userImages).set({ deletedAt: now, updatedAt: now, isActive: 0 }).where(eq(userImages.id, imageId));
+  await logAudit(db, { userId: caller.sub, action: "DELETE", entity: "image", entityId: imageId });
   return c.json({ ok: true });
 });
 
@@ -71536,7 +71569,7 @@ var createSchema2 = serviceBaseSchema.refine((d) => d.endTime > d.startTime, {
 });
 async function getServiceWithExtras(id) {
   const service = await db.query.services.findFirst({
-    where: (s, { and: and3, eq: eq2, isNull: isNull4 }) => and3(eq2(s.id, id), isNull4(s.deletedAt))
+    where: (s, { and: and3, eq: eq2, isNull: isNull3 }) => and3(eq2(s.id, id), isNull3(s.deletedAt))
   });
   if (!service) return null;
   const extras = await db.query.serviceExtras.findMany({ where: eq(serviceExtras.serviceId, id) });
@@ -71559,7 +71592,7 @@ servicesRoutes.get("/", async (c) => {
   if (caller.role === "monitor") {
     const brandModelIds = await modelIdsForBrand(caller.brandId);
     const todayServices = brandModelIds.length === 0 ? [] : await db.query.services.findMany({
-      where: (s, { and: and3, between: between3, isNull: isNull4, inArray: inArrayFn }) => and3(inArrayFn(s.modelId, brandModelIds), between3(s.startTime, start, end), isNull4(s.deletedAt)),
+      where: (s, { and: and3, between: between3, isNull: isNull3, inArray: inArrayFn }) => and3(inArrayFn(s.modelId, brandModelIds), between3(s.startTime, start, end), isNull3(s.deletedAt)),
       orderBy: (s, { desc: desc2 }) => [desc2(s.startTime)]
     });
     const withExtras2 = await Promise.all(todayServices.map(
@@ -71568,7 +71601,7 @@ servicesRoutes.get("/", async (c) => {
     return c.json(withExtras2);
   }
   const ownServices = await db.query.services.findMany({
-    where: (s, { and: and3, eq: eqFn, between: between3, isNull: isNull4 }) => and3(eqFn(s.modelId, caller.sub), between3(s.startTime, start, end), isNull4(s.deletedAt)),
+    where: (s, { and: and3, eq: eqFn, between: between3, isNull: isNull3 }) => and3(eqFn(s.modelId, caller.sub), between3(s.startTime, start, end), isNull3(s.deletedAt)),
     orderBy: (s, { desc: desc2 }) => [desc2(s.startTime)]
   });
   const withExtras = await Promise.all(ownServices.map(
@@ -71690,7 +71723,7 @@ reportsRoutes.get("/ranking", requireRole("admin", "monitor"), async (c) => {
   const caller = c.get("user");
   const brandModelIds = await modelIdsForBrand(caller.brandId);
   const all = brandModelIds.length === 0 ? [] : await db.query.services.findMany({
-    where: (s, { and: and3, isNull: isNull4, inArray: inArray2 }) => and3(inArray2(s.modelId, brandModelIds), isNull4(s.deletedAt))
+    where: (s, { and: and3, isNull: isNull3, inArray: inArray2 }) => and3(inArray2(s.modelId, brandModelIds), isNull3(s.deletedAt))
   });
   const countByModel = {};
   for (const s of all) {
@@ -71720,7 +71753,7 @@ reportsRoutes.get("/earnings", requireRole("admin"), async (c) => {
   const to = Number(c.req.query("to") ?? Date.now());
   const brandModelIds = await modelIdsForBrand(caller.brandId);
   const allServices = brandModelIds.length === 0 ? [] : await db.query.services.findMany({
-    where: (s, { and: and3, between: between3, isNull: isNull4, inArray: inArray2 }) => and3(inArray2(s.modelId, brandModelIds), between3(s.startTime, from, to), isNull4(s.deletedAt))
+    where: (s, { and: and3, between: between3, isNull: isNull3, inArray: inArray2 }) => and3(inArray2(s.modelId, brandModelIds), between3(s.startTime, from, to), isNull3(s.deletedAt))
   });
   let totalBase = 0;
   let companyEarnings = 0;
@@ -71753,7 +71786,7 @@ reportsRoutes.get("/model-earnings/:id", requireRole("admin"), async (c) => {
   const model = await findModelInBrand(modelId, caller.brandId);
   if (!model) return c.json({ error: "Model not found" }, 404);
   const modelServices = await db.query.services.findMany({
-    where: (s, { and: and3, eq: eqFn, between: between3, isNull: isNull4 }) => and3(eqFn(s.modelId, modelId), between3(s.startTime, from, to), isNull4(s.deletedAt)),
+    where: (s, { and: and3, eq: eqFn, between: between3, isNull: isNull3 }) => and3(eqFn(s.modelId, modelId), between3(s.startTime, from, to), isNull3(s.deletedAt)),
     orderBy: (s, { desc: desc2 }) => [desc2(s.startTime)]
   });
   const rows = await Promise.all(
@@ -71789,7 +71822,7 @@ reportsRoutes.get("/model-balance/:id", requireRole("admin"), async (c) => {
   const model = await findModelInBrand(modelId, caller.brandId);
   if (!model) return c.json({ error: "Model not found" }, 404);
   const modelServices = await db.query.services.findMany({
-    where: (s, { and: and3, eq: eqFn, isNull: isNull4 }) => and3(eqFn(s.modelId, modelId), isNull4(s.deletedAt))
+    where: (s, { and: and3, eq: eqFn, isNull: isNull3 }) => and3(eqFn(s.modelId, modelId), isNull3(s.deletedAt))
   });
   let totalEarnings = 0;
   for (const s of modelServices) {
@@ -71799,11 +71832,11 @@ reportsRoutes.get("/model-balance/:id", requireRole("admin"), async (c) => {
     totalEarnings += calcEarnings(s.basePrice, extras.map((x) => x.amount)).modelTotal;
   }
   const modelFines = await db.query.fines.findMany({
-    where: (f, { and: and3, eq: eqFn, isNull: isNull4 }) => and3(eqFn(f.modelId, modelId), isNull4(f.deletedAt))
+    where: (f, { and: and3, eq: eqFn, isNull: isNull3 }) => and3(eqFn(f.modelId, modelId), isNull3(f.deletedAt))
   });
   const totalFines = modelFines.reduce((sum, f) => sum + f.amount, 0);
   const modelLoans = await db.query.loans.findMany({
-    where: (l, { and: and3, eq: eqFn, isNull: isNull4 }) => and3(eqFn(l.modelId, modelId), isNull4(l.deletedAt))
+    where: (l, { and: and3, eq: eqFn, isNull: isNull3 }) => and3(eqFn(l.modelId, modelId), isNull3(l.deletedAt))
   });
   const totalLoans = modelLoans.reduce((sum, l) => sum + l.amount, 0);
   const modelPayments = await db.query.payments.findMany({
@@ -71825,7 +71858,7 @@ reportsRoutes.get("/brand-earnings", requireRole("dev"), async (c) => {
   const models = await db.query.users.findMany({ where: (u, { eq: eqFn }) => eqFn(u.role, "model") });
   const modelBrand = new Map(models.map((m) => [m.id, m.brandId]));
   const svcs = await db.query.services.findMany({
-    where: (s, { and: and3, between: between3, isNull: isNull4 }) => and3(between3(s.startTime, from, to), isNull4(s.deletedAt))
+    where: (s, { and: and3, between: between3, isNull: isNull3 }) => and3(between3(s.startTime, from, to), isNull3(s.deletedAt))
   });
   const acc = /* @__PURE__ */ new Map();
   for (const b of allBrands) acc.set(b.id, { totalServices: 0, totalBase: 0, companyEarnings: 0, modelTotalEarnings: 0 });
@@ -71857,7 +71890,7 @@ reportsRoutes.get("/daily", requireRole("admin", "monitor"), async (c) => {
   const { start, end } = getTodayRangeInBogota();
   const brandModelIds = await modelIdsForBrand(caller.brandId);
   const todayServices = brandModelIds.length === 0 ? [] : await db.query.services.findMany({
-    where: (s, { and: and3, between: between3, isNull: isNull4, inArray: inArray2 }) => and3(inArray2(s.modelId, brandModelIds), between3(s.startTime, start, end), isNull4(s.deletedAt))
+    where: (s, { and: and3, between: between3, isNull: isNull3, inArray: inArray2 }) => and3(inArray2(s.modelId, brandModelIds), between3(s.startTime, start, end), isNull3(s.deletedAt))
   });
   let totalBase = 0;
   let companyEarnings = 0;
@@ -71905,13 +71938,13 @@ finesRoutes.get("/", async (c) => {
   const { start, end } = getTodayRangeInBogota();
   if (caller.role === "monitor") {
     const today = brandModelIds.length === 0 ? [] : await db.query.fines.findMany({
-      where: (f, { and: and3, between: between3, isNull: isNull4, inArray: inArrayFn }) => and3(inArrayFn(f.modelId, brandModelIds), between3(f.createdAt, start, end), isNull4(f.deletedAt)),
+      where: (f, { and: and3, between: between3, isNull: isNull3, inArray: inArrayFn }) => and3(inArrayFn(f.modelId, brandModelIds), between3(f.createdAt, start, end), isNull3(f.deletedAt)),
       orderBy: (f, { desc: desc2 }) => [desc2(f.createdAt)]
     });
     return c.json(today);
   }
   const own = await db.query.fines.findMany({
-    where: (f, { and: and3, eq: eqFn, between: between3, isNull: isNull4 }) => and3(eqFn(f.modelId, caller.sub), between3(f.createdAt, start, end), isNull4(f.deletedAt)),
+    where: (f, { and: and3, eq: eqFn, between: between3, isNull: isNull3 }) => and3(eqFn(f.modelId, caller.sub), between3(f.createdAt, start, end), isNull3(f.deletedAt)),
     orderBy: (f, { desc: desc2 }) => [desc2(f.createdAt)]
   });
   return c.json(own);
@@ -71941,7 +71974,7 @@ finesRoutes.put("/:id", requireRole("admin"), zValidator("json", amountSchema), 
   const id = c.req.param("id");
   const { amount } = c.req.valid("json");
   const existing = await db.query.fines.findFirst({
-    where: (f, { and: and3, eq: eqFn, isNull: isNull4 }) => and3(eqFn(f.id, id), isNull4(f.deletedAt))
+    where: (f, { and: and3, eq: eqFn, isNull: isNull3 }) => and3(eqFn(f.id, id), isNull3(f.deletedAt))
   });
   if (!existing) return c.json({ error: "Not found" }, 404);
   const ownerModel = await findModelInBrand(existing.modelId, caller.brandId);
@@ -71955,7 +71988,7 @@ finesRoutes.delete("/:id", requireRole("admin"), async (c) => {
   const caller = c.get("user");
   const id = c.req.param("id");
   const existing = await db.query.fines.findFirst({
-    where: (f, { and: and3, eq: eqFn, isNull: isNull4 }) => and3(eqFn(f.id, id), isNull4(f.deletedAt))
+    where: (f, { and: and3, eq: eqFn, isNull: isNull3 }) => and3(eqFn(f.id, id), isNull3(f.deletedAt))
   });
   if (!existing) return c.json({ error: "Not found" }, 404);
   const ownerModel = await findModelInBrand(existing.modelId, caller.brandId);
@@ -71990,13 +72023,13 @@ loansRoutes.get("/", async (c) => {
   const { start, end } = getTodayRangeInBogota();
   if (caller.role === "monitor") {
     const today = brandModelIds.length === 0 ? [] : await db.query.loans.findMany({
-      where: (l, { and: and3, between: between3, isNull: isNull4, inArray: inArrayFn }) => and3(inArrayFn(l.modelId, brandModelIds), between3(l.createdAt, start, end), isNull4(l.deletedAt)),
+      where: (l, { and: and3, between: between3, isNull: isNull3, inArray: inArrayFn }) => and3(inArrayFn(l.modelId, brandModelIds), between3(l.createdAt, start, end), isNull3(l.deletedAt)),
       orderBy: (l, { desc: desc2 }) => [desc2(l.createdAt)]
     });
     return c.json(today);
   }
   const own = await db.query.loans.findMany({
-    where: (l, { and: and3, eq: eqFn, between: between3, isNull: isNull4 }) => and3(eqFn(l.modelId, caller.sub), between3(l.createdAt, start, end), isNull4(l.deletedAt)),
+    where: (l, { and: and3, eq: eqFn, between: between3, isNull: isNull3 }) => and3(eqFn(l.modelId, caller.sub), between3(l.createdAt, start, end), isNull3(l.deletedAt)),
     orderBy: (l, { desc: desc2 }) => [desc2(l.createdAt)]
   });
   return c.json(own);
@@ -72026,7 +72059,7 @@ loansRoutes.put("/:id", requireRole("admin", "monitor"), zValidator("json", amou
   const id = c.req.param("id");
   const { amount } = c.req.valid("json");
   const existing = await db.query.loans.findFirst({
-    where: (l, { and: and3, eq: eqFn, isNull: isNull4 }) => and3(eqFn(l.id, id), isNull4(l.deletedAt))
+    where: (l, { and: and3, eq: eqFn, isNull: isNull3 }) => and3(eqFn(l.id, id), isNull3(l.deletedAt))
   });
   if (!existing) return c.json({ error: "Not found" }, 404);
   const ownerModel = await findModelInBrand(existing.modelId, caller.brandId);
@@ -72040,7 +72073,7 @@ loansRoutes.delete("/:id", requireRole("admin", "monitor"), async (c) => {
   const caller = c.get("user");
   const id = c.req.param("id");
   const existing = await db.query.loans.findFirst({
-    where: (l, { and: and3, eq: eqFn, isNull: isNull4 }) => and3(eqFn(l.id, id), isNull4(l.deletedAt))
+    where: (l, { and: and3, eq: eqFn, isNull: isNull3 }) => and3(eqFn(l.id, id), isNull3(l.deletedAt))
   });
   if (!existing) return c.json({ error: "Not found" }, 404);
   const ownerModel = await findModelInBrand(existing.modelId, caller.brandId);
@@ -72116,8 +72149,11 @@ brandsRoutes.post("/", zValidator("json", createSchema6), async (c) => {
   await db.insert(brandSubscriptions).values({
     id: newId(),
     brandId: id,
-    plan: "pilot",
-    isActive: 1,
+    tier: "paid",
+    status: "active",
+    trialEndsAt: null,
+    paidUntil: null,
+    isGrandfathered: 1,
     createdAt: now,
     updatedAt: now
   });
@@ -72191,6 +72227,8 @@ function computeNewPaidUntil(current, product, now = Date.now()) {
 var brandRoutes = new Hono2();
 brandRoutes.use("*", authMiddleware);
 async function resolveTokenDiscountPercent(brandId) {
+  const access = await loadBrandAccess(brandId);
+  if (!access.isPaidEffective) return 0;
   const latest = await db.select({ tokenDiscountPercent: products.tokenDiscountPercent }).from(purchases).innerJoin(products, eq(products.id, purchases.productId)).where(and(
     eq(purchases.brandId, brandId),
     eq(purchases.status, "APPROVED"),
@@ -72326,7 +72364,7 @@ brandRoutes.get("/models", async (c) => {
   const result = await Promise.all(
     models.map(async (m) => {
       const images = await db.query.userImages.findMany({
-        where: (img, { and: andFn, eq: eqFn, isNull: isNull4 }) => andFn(eqFn(img.userId, m.id), eqFn(img.isActive, 1), isNull4(img.deletedAt)),
+        where: (img, { and: andFn, eq: eqFn, isNull: isNull3 }) => andFn(eqFn(img.userId, m.id), eqFn(img.isActive, 1), isNull3(img.deletedAt)),
         orderBy: (img, { asc: asc2 }) => [asc2(img.sortOrder)]
       });
       const { password: _, ...model } = m;
@@ -72409,6 +72447,14 @@ webhooksRoutes.post("/wompi", async (c) => {
   if (status === "PENDING") {
     return c.json({ ok: true, ignored: "still_pending" });
   }
+  if (status === "APPROVED") {
+    const expectedCents = purchase.amountCop * 100;
+    if (typeof tx.amount_in_cents !== "number" || tx.amount_in_cents !== expectedCents) {
+      const now = Date.now();
+      await db.update(purchases).set({ status: "ERROR", wompiTransactionId: tx.id, updatedAt: now }).where(eq(purchases.id, purchase.id));
+      return c.json({ ok: true, ignored: "amount_mismatch" });
+    }
+  }
   await db.transaction(async (tx2) => {
     const now = Date.now();
     await tx2.update(purchases).set({
@@ -72439,6 +72485,18 @@ webhooksRoutes.post("/wompi", async (c) => {
             trialEndsAt: null,
             updatedAt: now
           }).where(eq(brandSubscriptions.id, sub.id));
+        } else {
+          await tx2.insert(brandSubscriptions).values({
+            id: newId(),
+            brandId: purchase.brandId,
+            tier: "paid",
+            status: "active",
+            trialEndsAt: null,
+            paidUntil: newPaidUntil,
+            isGrandfathered: 0,
+            createdAt: now,
+            updatedAt: now
+          });
         }
       } else if (product.type === "TOKEN_PACK" && product.tokensGranted != null) {
         const wallet = await tx2.query.brandWallets.findFirst({

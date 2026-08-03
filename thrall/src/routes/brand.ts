@@ -14,6 +14,11 @@ export const brandRoutes = new Hono<AppEnv>()
 brandRoutes.use('*', authMiddleware)
 
 async function resolveTokenDiscountPercent(brandId: string): Promise<number> {
+  // Only grant the discount if the brand's subscription is CURRENTLY active
+  // (either paid-active or grandfathered). Otherwise an expired brand would
+  // keep the discount from whatever plan they held years ago.
+  const access = await loadBrandAccess(brandId)
+  if (!access.isPaidEffective) return 0
   const latest = await db
     .select({ tokenDiscountPercent: products.tokenDiscountPercent })
     .from(purchases)

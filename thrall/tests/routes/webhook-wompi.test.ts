@@ -41,10 +41,20 @@ async function post(body: object) {
   })
 }
 
+const PRODUCT_PRICE_COP: Record<string, number> = {
+  prod_sub_monthly: 85000,
+  prod_sub_semester: 500000,
+  prod_sub_annual: 980000,
+  prod_tokens_100: 10000,
+  prod_tokens_500: 40000,
+  prod_tokens_1500: 100000,
+}
+
 async function seedPending(brandId: string, userId: string, ref: string, productId = 'prod_sub_monthly') {
+  const amountCop = PRODUCT_PRICE_COP[productId] ?? 85000
   const now = Date.now()
   await db.insert(purchases).values({
-    id: newId(), brandId, productId, userId, amountCop: 85000,
+    id: newId(), brandId, productId, userId, amountCop,
     status: 'PENDING', wompiReference: ref,
     createdAt: now, updatedAt: now,
   })

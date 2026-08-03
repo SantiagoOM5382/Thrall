@@ -50,6 +50,21 @@ webhooksRoutes.post('/wompi', async (c) => {
     return c.json({ ok: true, ignored: 'still_pending' })
   }
 
+  // Defense-in-depth: even though the checkout URL is integrity-signed, we
+  // cross-check the webhook amount against the stored purchase snapshot before
+  // granting anything of value. A mismatch means either replay with tampered
+  // data or a Wompi-side bug; we mark the purchase ERROR and refuse to credit.
+  if (status === 'APPROVED') {
+    const expectedCents = purchase.amountCop * 100
+    if (typeof tx.amount_in_cents !== 'number' || tx.amount_in_cents !== expectedCents) {
+      const now = Date.now()
+      await db.update(purchases)
+        .set({ status: 'ERROR', wompiTransactionId: tx.id, updatedAt: now })
+        .where(eq(purchases.id, purchase.id))
+      return c.json({ ok: true, ignored: 'amount_mismatch' })
+    }
+  }
+
   await db.transaction(async (tx2) => {
     const now = Date.now()
     await tx2.update(purchases)
@@ -84,6 +99,20 @@ webhooksRoutes.post('/wompi', async (c) => {
               updatedAt: now,
             })
             .where(eq(brandSubscriptions.id, sub.id))
+        } else {
+          // A paid customer with no subscription row would otherwise be
+          // silently left without access. Create the row on the fly.
+          await tx2.insert(brandSubscriptions).values({
+            id: newId(),
+            brandId: purchase.brandId,
+            tier: 'paid',
+            status: 'active',
+            trialEndsAt: null,
+            paidUntil: newPaidUntil,
+            isGrandfathered: 0,
+            createdAt: now,
+            updatedAt: now,
+          })
         }
       } else if (product.type === 'TOKEN_PACK' && product.tokensGranted != null) {
         const wallet = await tx2.query.brandWallets.findFirst({

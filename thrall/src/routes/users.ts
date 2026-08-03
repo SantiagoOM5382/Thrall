@@ -140,7 +140,11 @@ usersRoutes.put('/:id', zValidator('json', updateSchema), async (c) => {
   }
 
   const now = Date.now()
-  const patch: Record<string, unknown> = { ...data, updatedAt: now }
+  // Never allow a non-dev to move a user between brands via PUT body; even for
+  // dev callers we do NOT support tenancy transfer here (would need auditing
+  // + JWT invalidation). Strip the field before applying the patch.
+  const { brandId: _stripBrandId, ...safeData } = data
+  const patch: Record<string, unknown> = { ...safeData, updatedAt: now }
   if (data.password) patch.password = await hashPassword(data.password)
 
   await db.update(users).set(patch).where(eq(users.id, c.req.param('id')))

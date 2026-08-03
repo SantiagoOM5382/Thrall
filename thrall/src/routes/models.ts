@@ -1,16 +1,31 @@
 import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
-import { and, eq, gt } from 'drizzle-orm'
+import { and, eq, gt, sql } from 'drizzle-orm'
 import { db } from '../db/client'
 import { users, brandWallets, walletTransactions, topServices, profileBoosts } from '../db/schema'
 import { authMiddleware, type AppEnv } from '../middleware/auth'
+import { requirePaid } from '../middleware/requirePaid'
 import { newId } from '../lib/ulid'
 import { computeBoostExpiry } from '../lib/wallet'
 
 export const modelsRoutes = new Hono<AppEnv>()
 
 class InsufficientTokensError extends Error {}
+
+// Public showcase view: whitelist only fields safe for anonymous consumption.
+// Excludes email, brandId, role, isActive, timestamps — those are internal.
+function toPublicModel(m: typeof users.$inferSelect, isBoosted: boolean, images: Array<{ id: string; url: string; sortOrder: number }>) {
+  return {
+    id: m.id,
+    name: m.name,
+    description: m.description,
+    phone: m.phone,
+    telegram: m.telegram,
+    isBoosted,
+    images,
+  }
+}
 
 modelsRoutes.get('/', async (c) => {
   const now = Date.now()
@@ -32,12 +47,11 @@ modelsRoutes.get('/', async (c) => {
           and(eq(img.userId, m.id), eq(img.isActive, 1), isNull(img.deletedAt)),
         orderBy: (img, { asc }) => [asc(img.sortOrder)],
       })
-      const { password: _, ...model } = m
-      return {
-        ...model,
-        isBoosted: boostedIds.has(m.id),
-        images: images.map((i) => ({ id: i.id, url: i.url, sortOrder: i.sortOrder })),
-      }
+      return toPublicModel(
+        m,
+        boostedIds.has(m.id),
+        images.map((i) => ({ id: i.id, url: i.url, sortOrder: i.sortOrder })),
+      )
     })
   )
 
@@ -46,6 +60,7 @@ modelsRoutes.get('/', async (c) => {
 })
 
 modelsRoutes.get('/:id', async (c) => {
+  const now = Date.now()
   const model = await db.query.users.findFirst({
     where: (u, { and, eq, isNull }) =>
       and(eq(u.id, c.req.param('id')), eq(u.role, 'model'), eq(u.isActive, 1), isNull(u.deletedAt)),
@@ -57,14 +72,22 @@ modelsRoutes.get('/:id', async (c) => {
       and(eq(img.userId, model.id), eq(img.isActive, 1), isNull(img.deletedAt)),
     orderBy: (img, { asc }) => [asc(img.sortOrder)],
   })
+  const activeBoost = await db
+    .select({ id: profileBoosts.id })
+    .from(profileBoosts)
+    .where(and(eq(profileBoosts.modelId, model.id), gt(profileBoosts.endsAt, now)))
+    .limit(1)
 
-  const { password: _, ...rest } = model
-  return c.json({ ...rest, images: images.map((i) => ({ id: i.id, url: i.url, sortOrder: i.sortOrder })) })
+  return c.json(toPublicModel(
+    model,
+    activeBoost.length > 0,
+    images.map((i) => ({ id: i.id, url: i.url, sortOrder: i.sortOrder })),
+  ))
 })
 
 const boostSchema = z.object({ topServiceId: z.string().min(1) })
 
-modelsRoutes.post('/:id/boost', authMiddleware, zValidator('json', boostSchema), async (c) => {
+modelsRoutes.post('/:id/boost', authMiddleware, requirePaid, zValidator('json', boostSchema), async (c) => {
   const user = c.get('user')
   const { topServiceId } = c.req.valid('json')
   const modelId = c.req.param('id')
@@ -84,25 +107,37 @@ modelsRoutes.post('/:id/boost', authMiddleware, zValidator('json', boostSchema),
       const wallet = await tx.query.brandWallets.findFirst({
         where: eq(brandWallets.brandId, user.brandId),
       })
-      const currentBalance = wallet?.tokensBalance ?? 0
-      if (currentBalance < service.tokensCost) {
-        throw new InsufficientTokensError()
-      }
-
       const now = Date.now()
       const endsAt = computeBoostExpiry(now, service.durationHours)
-      const newBalance = currentBalance - service.tokensCost
       const boostId = newId()
 
+      // Atomic guarded decrement: if two boosts race, only one UPDATE will
+      // match the `tokens_balance >= cost` predicate (SQLite serializes
+      // writes, and the WHERE guard prevents the classic
+      // read-compute-write TOCTOU that a naive `SET balance = <js-computed>`
+      // pattern permits).
+      let newBalance: number
       if (wallet) {
-        await tx.update(brandWallets)
-          .set({ tokensBalance: newBalance, updatedAt: now })
-          .where(eq(brandWallets.id, wallet.id))
+        const upd = await tx.update(brandWallets)
+          .set({
+            tokensBalance: sql`${brandWallets.tokensBalance} - ${service.tokensCost}`,
+            updatedAt: now,
+          })
+          .where(and(
+            eq(brandWallets.id, wallet.id),
+            gt(brandWallets.tokensBalance, service.tokensCost - 1),
+          ))
+          .returning({ tokensBalance: brandWallets.tokensBalance })
+        if (upd.length === 0) throw new InsufficientTokensError()
+        newBalance = upd[0].tokensBalance
       } else {
+        // No wallet row → balance is effectively 0; any positive cost fails.
+        if (service.tokensCost > 0) throw new InsufficientTokensError()
         await tx.insert(brandWallets).values({
-          id: newId(), brandId: user.brandId, tokensBalance: newBalance,
+          id: newId(), brandId: user.brandId, tokensBalance: 0,
           createdAt: now, updatedAt: now,
         })
+        newBalance = 0
       }
 
       await tx.insert(profileBoosts).values({

@@ -64,7 +64,7 @@ export default function LoginPage() {
             id="email"
             type="email"
             autoComplete="email"
-            placeholder="admin@arthas.co"
+            placeholder="admin@tuagencia.co"
             className="h-10"
             aria-invalid={!!errors.email}
             {...register("email")}

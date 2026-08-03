@@ -17,7 +17,7 @@ const cormorant = Cormorant_Garamond({
 });
 
 export const metadata: Metadata = {
-  title: "Arthas",
+  title: "Musa",
   description: "Conoce a nuestras modelos",
 };
 

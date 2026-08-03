@@ -86,7 +86,7 @@ const ROLE_LABEL: Record<Role, string> = {
   dev: "Dev",
 }
 
-const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? "Arthas"
+const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? "Musa"
 
 // Gated sections: locked behind a paid subscription. Shown with a lock icon
 // while on the free tier / expired trial. brand-earnings is dev-only and

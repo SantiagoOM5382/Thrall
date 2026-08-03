@@ -1,7 +1,7 @@
 import { Mail } from "lucide-react"
 import { InstagramIcon, WhatsAppIcon, TikTokIcon, XIcon } from "./social-icons"
 
-const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? "Arthas"
+const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? "Musa"
 const CONTACT_EMAIL = process.env.NEXT_PUBLIC_CONTACT_EMAIL
 const DEVELOPER_NAME = process.env.NEXT_PUBLIC_DEVELOPER_NAME
 

@@ -1,7 +1,7 @@
 import type { ReactNode } from "react"
 import { Check } from "lucide-react"
 
-const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? "Arthas"
+const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? "Musa"
 
 const FEATURES = [
   "10 días de prueba, acceso completo",

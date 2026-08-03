@@ -20,8 +20,8 @@ const spaceGrotesk = Space_Grotesk({
 });
 
 export const metadata: Metadata = {
-  title: "Arthas",
-  description: "Sistema de gestión de Arthas",
+  title: "Musa",
+  description: "Panel de gestión para agencias en Musa",
 };
 
 export default function RootLayout({

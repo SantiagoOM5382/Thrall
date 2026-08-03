@@ -13,7 +13,7 @@ export function SiteHeader() {
           href="/"
           className="font-display text-2xl font-medium tracking-[0.08em] text-[var(--ivory)] transition-colors hover:text-[var(--gold)]"
         >
-          Arthas
+          Musa
         </Link>
 
         <div className="flex items-center gap-3">

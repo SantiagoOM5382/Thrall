@@ -17,7 +17,7 @@ function buildPayload(opts: {
   transactionId?: string
 }) {
   const txId = opts.transactionId ?? 'tx-' + newId()
-  const amount = opts.amountInCents ?? 8500000
+  const amount = opts.amountInCents ?? 6000000
   const timestamp = Math.floor(Date.now() / 1000)
   const properties = ['transaction.id', 'transaction.status', 'transaction.amount_in_cents']
   const data = { transaction: { id: txId, reference: opts.reference, status: opts.status, amount_in_cents: amount } }
@@ -42,12 +42,13 @@ async function post(body: object) {
 }
 
 const PRODUCT_PRICE_COP: Record<string, number> = {
-  prod_sub_monthly: 85000,
-  prod_sub_semester: 500000,
-  prod_sub_annual: 980000,
-  prod_tokens_100: 10000,
-  prod_tokens_500: 40000,
-  prod_tokens_1500: 100000,
+  prod_sub_monthly: 60000,
+  prod_sub_semester: 250000,
+  prod_sub_annual: 500000,
+  prod_tokens_100: 50000,   // now "Pack Chico"
+  prod_tokens_500: 90000,   // now "Pack Medio"
+  prod_tokens_1500: 150000, // now "Pack Grande"
+  prod_tokens_master: 200000,
 }
 
 async function seedPending(brandId: string, userId: string, ref: string, productId = 'prod_sub_monthly') {
@@ -148,18 +149,18 @@ describe('POST /api/webhooks/wompi — TOKEN_PACK', () => {
     const u = await createTestUser(brand, { role: 'admin' })
     const ref = 'ref-tok-' + newId()
     await seedPending(brand, u.id, ref, 'prod_tokens_100')
-    const body = buildPayload({ reference: ref, status: 'APPROVED', amountInCents: 1000000 })
+    const body = buildPayload({ reference: ref, status: 'APPROVED', amountInCents: 5000000 })
     const res = await post(body)
     expect(res.status).toBe(200)
 
     const wallet = await db.query.brandWallets.findFirst({ where: eq(brandWallets.brandId, brand) })
-    expect(wallet?.tokensBalance).toBe(100)
+    expect(wallet?.tokensBalance).toBe(100000)
 
     const txs = await db.select().from(walletTransactions).where(eq(walletTransactions.brandId, brand))
     expect(txs).toHaveLength(1)
     expect(txs[0].type).toBe('CREDIT_PURCHASE')
-    expect(txs[0].amount).toBe(100)
-    expect(txs[0].balanceAfter).toBe(100)
+    expect(txs[0].amount).toBe(100000)
+    expect(txs[0].balanceAfter).toBe(100000)
 
     // Subscription state must be untouched by a token purchase.
     const sub = await db.query.brandSubscriptions.findFirst({ where: eq(brandSubscriptions.brandId, brand) })
@@ -170,12 +171,13 @@ describe('POST /api/webhooks/wompi — TOKEN_PACK', () => {
     const brand = await createTestBrand({ tier: 'free', status: 'expired', isGrandfathered: 0 })
     const u = await createTestUser(brand, { role: 'admin' })
     const now = Date.now()
-    await db.insert(brandWallets).values({ id: newId(), brandId: brand, tokensBalance: 40, createdAt: now, updatedAt: now })
+    await db.insert(brandWallets).values({ id: newId(), brandId: brand, tokensBalance: 40000, createdAt: now, updatedAt: now })
     const ref = 'ref-tok2-' + newId()
     await seedPending(brand, u.id, ref, 'prod_tokens_500')
-    const body = buildPayload({ reference: ref, status: 'APPROVED', amountInCents: 4000000 })
+    const body = buildPayload({ reference: ref, status: 'APPROVED', amountInCents: 9000000 })
     await post(body)
     const wallet = await db.query.brandWallets.findFirst({ where: eq(brandWallets.brandId, brand) })
-    expect(wallet?.tokensBalance).toBe(540)
+    // 40000 existing + 200000 from Pack Medio (prod_tokens_500 now grants 200k)
+    expect(wallet?.tokensBalance).toBe(240000)
   })
 })

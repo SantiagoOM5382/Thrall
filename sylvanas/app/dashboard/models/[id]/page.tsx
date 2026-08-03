@@ -46,7 +46,7 @@ export default async function ModelDetailPage({
   }
 
   const images = await getModelImages(id)
-  const topServices = await apiFetch<{ id: string; code: string; displayName: string; tokensCost: number; durationHours: number }[]>("/top-services").catch(() => [])
+  const topServices = await apiFetch<{ id: string; code: string; displayName: string; tokensCost: number; durationMinutes: number }[]>("/top-services").catch(() => [])
   const cover = images[0]?.url
 
   return (

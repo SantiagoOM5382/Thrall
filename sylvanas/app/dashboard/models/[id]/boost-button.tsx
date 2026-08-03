@@ -13,7 +13,7 @@ type TopService = {
   code: string
   displayName: string
   tokensCost: number
-  durationHours: number
+  durationMinutes: number
 }
 
 export function BoostButton({ modelId, services }: { modelId: string; services: TopService[] }) {

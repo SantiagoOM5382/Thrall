@@ -2157,9 +2157,13 @@ var init_relations = __esm({
 });
 
 // node_modules/drizzle-orm/sql/functions/aggregate.js
+function count(expression) {
+  return sql`count(${expression || sql.raw("*")})`.mapWith(Number);
+}
 var init_aggregate = __esm({
   "node_modules/drizzle-orm/sql/functions/aggregate.js"() {
     "use strict";
+    init_sql();
   }
 });
 
@@ -6646,7 +6650,7 @@ var init_schema = __esm({
       code: text("code").notNull(),
       displayName: text("display_name").notNull(),
       tokensCost: integer2("tokens_cost").notNull(),
-      durationHours: integer2("duration_hours").notNull(),
+      durationMinutes: integer2("duration_minutes").notNull(),
       isActive: integer2("is_active").notNull().default(1),
       createdAt: integer2("created_at").notNull(),
       updatedAt: integer2("updated_at").notNull()
@@ -14148,8 +14152,8 @@ var require_be = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.default = default_1;
     var util = __importStar(require_util());
-    function getBelarusianPlural2(count, one, few, many) {
-      const absCount = Math.abs(count);
+    function getBelarusianPlural2(count2, one, few, many) {
+      const absCount = Math.abs(count2);
       const lastDigit = absCount % 10;
       const lastTwoDigits = absCount % 100;
       if (lastTwoDigits >= 11 && lastTwoDigits <= 19) {
@@ -19035,8 +19039,8 @@ var require_ru = __commonJS({
     Object.defineProperty(exports, "__esModule", { value: true });
     exports.default = default_1;
     var util = __importStar(require_util());
-    function getRussianPlural2(count, one, few, many) {
-      const absCount = Math.abs(count);
+    function getRussianPlural2(count2, one, few, many) {
+      const absCount = Math.abs(count2);
       const lastDigit = absCount % 10;
       const lastTwoDigits = absCount % 100;
       if (lastTwoDigits >= 11 && lastTwoDigits <= 19) {
@@ -30634,11 +30638,11 @@ var require_retry_operation = __commonJS({
       for (var i = 0; i < this._errors.length; i++) {
         var error51 = this._errors[i];
         var message2 = error51.message;
-        var count = (counts[message2] || 0) + 1;
-        counts[message2] = count;
-        if (count >= mainErrorCount) {
+        var count2 = (counts[message2] || 0) + 1;
+        counts[message2] = count2;
+        if (count2 >= mainErrorCount) {
           mainError = error51;
-          mainErrorCount = count;
+          mainErrorCount = count2;
         }
       }
       return mainError;
@@ -41583,11 +41587,11 @@ var require_pluralizer = __commonJS({
         this.singular = singular;
         this.plural = plural;
       }
-      pluralize(count) {
-        const one = count === 1;
+      pluralize(count2) {
+        const one = count2 === 1;
         const keys = one ? singulars : plurals;
         const noun = one ? this.singular : this.plural;
-        return { ...keys, count, noun };
+        return { ...keys, count: count2, noun };
       }
     };
   }
@@ -56317,8 +56321,8 @@ function az_default() {
 }
 
 // node_modules/zod/v4/locales/be.js
-function getBelarusianPlural(count, one, few, many) {
-  const absCount = Math.abs(count);
+function getBelarusianPlural(count2, one, few, many) {
+  const absCount = Math.abs(count2);
   const lastDigit = absCount % 10;
   const lastTwoDigits = absCount % 100;
   if (lastTwoDigits >= 11 && lastTwoDigits <= 19) {
@@ -58396,8 +58400,8 @@ function hu_default() {
 }
 
 // node_modules/zod/v4/locales/hy.js
-function getArmenianPlural(count, one, many) {
-  return Math.abs(count) === 1 ? one : many;
+function getArmenianPlural(count2, one, many) {
+  return Math.abs(count2) === 1 ? one : many;
 }
 function withDefiniteArticle(word) {
   if (!word)
@@ -60525,8 +60529,8 @@ function ro_default() {
 }
 
 // node_modules/zod/v4/locales/ru.js
-function getRussianPlural(count, one, few, many) {
-  const absCount = Math.abs(count);
+function getRussianPlural(count2, one, few, many) {
+  const absCount = Math.abs(count2);
   const lastDigit = absCount % 10;
   const lastTwoDigits = absCount % 100;
   if (lastTwoDigits >= 11 && lastTwoDigits <= 19) {
@@ -69629,6 +69633,7 @@ async function logAudit(db2, params) {
 }
 
 // src/routes/users.ts
+var FREE_MODEL_CAP = 5;
 var usersRoutes = new Hono2();
 usersRoutes.use("*", authMiddleware, requireRole("admin", "dev"));
 var createSchema = external_exports.object({
@@ -69675,6 +69680,20 @@ usersRoutes.post("/", zValidator("json", createSchema), async (c) => {
     const access = await loadBrandAccess2(caller.brandId);
     if (!access.isPaidEffective) {
       return c.json({ error: "subscription_required", reason: access.reason }, 403);
+    }
+  }
+  if (caller.role !== "dev" && data.role === "model") {
+    const { loadBrandAccess: loadBrandAccess2 } = await Promise.resolve().then(() => (init_requirePaid(), requirePaid_exports));
+    const access = await loadBrandAccess2(caller.brandId);
+    if (!access.isPaidEffective) {
+      const [{ n }] = await db.select({ n: count() }).from(users).where(and(
+        eq(users.brandId, caller.brandId),
+        eq(users.role, "model"),
+        isNull(users.deletedAt)
+      ));
+      if (n >= FREE_MODEL_CAP) {
+        return c.json({ error: "model_cap_reached", cap: FREE_MODEL_CAP }, 403);
+      }
     }
   }
   const targetBrandId = caller.role === "dev" ? data.brandId : caller.brandId;
@@ -69764,8 +69783,8 @@ function applyDiscount(priceCop, discountPercent) {
   const pct = discountPercent ?? 0;
   return Math.round(priceCop * (1 - pct / 100));
 }
-function computeBoostExpiry(now, durationHours) {
-  return now + durationHours * 36e5;
+function computeBoostExpiry(now, durationMinutes) {
+  return now + durationMinutes * 6e4;
 }
 
 // src/routes/models.ts
@@ -69842,7 +69861,7 @@ modelsRoutes.post("/:id/boost", authMiddleware, zValidator("json", boostSchema),
         where: eq(brandWallets.brandId, user.brandId)
       });
       const now = Date.now();
-      const endsAt = computeBoostExpiry(now, service.durationHours);
+      const endsAt = computeBoostExpiry(now, service.durationMinutes);
       const boostId = newId();
       let newBalance;
       if (wallet) {
@@ -72541,7 +72560,7 @@ topServicesRoutes.get("/", async (c) => {
     code: topServices.code,
     displayName: topServices.displayName,
     tokensCost: topServices.tokensCost,
-    durationHours: topServices.durationHours
+    durationMinutes: topServices.durationMinutes
   }).from(topServices).where(eq(topServices.isActive, 1));
   return c.json(rows);
 });

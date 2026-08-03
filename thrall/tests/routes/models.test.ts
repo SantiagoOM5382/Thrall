@@ -51,13 +51,13 @@ describe('GET /api/models — boost ordering', () => {
     const now = Date.now()
     await db.insert(profileBoosts).values({
       id: newId(), modelId: boosted.id, brandId, purchasedBy: plain.id,
-      topServiceId: 'svc_top_perfil_24h', tokensSpent: 50,
+      topServiceId: 'svc_top_24h', tokensSpent: 19549,
       startsAt: now, endsAt: now + 3_600_000, createdAt: now,
     })
     // Expired boost on `plain` must NOT count as active.
     await db.insert(profileBoosts).values({
       id: newId(), modelId: plain.id, brandId, purchasedBy: plain.id,
-      topServiceId: 'svc_top_perfil_24h', tokensSpent: 50,
+      topServiceId: 'svc_top_24h', tokensSpent: 19549,
       startsAt: now - 100_000, endsAt: now - 1000, createdAt: now - 100_000,
     })
 

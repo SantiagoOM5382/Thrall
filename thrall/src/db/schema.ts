@@ -147,7 +147,7 @@ export const topServices = sqliteTable('top_services', {
   code: text('code').notNull(),
   displayName: text('display_name').notNull(),
   tokensCost: integer('tokens_cost').notNull(),
-  durationHours: integer('duration_hours').notNull(),
+  durationMinutes: integer('duration_minutes').notNull(),
   isActive: integer('is_active').notNull().default(1),
   createdAt: integer('created_at').notNull(),
   updatedAt: integer('updated_at').notNull(),

@@ -21,20 +21,22 @@ describe('POST /api/models/:id/boost', () => {
     const model = await createTestUser(brand, { role: 'model', email: `m-${newId()}@test.com` })
     const token = await tokenFor(admin.id, 'admin', brand)
     const now = Date.now()
-    await db.insert(brandWallets).values({ id: newId(), brandId: brand, tokensBalance: 100, createdAt: now, updatedAt: now })
+    await db.insert(brandWallets).values({ id: newId(), brandId: brand, tokensBalance: 100000, createdAt: now, updatedAt: now })
 
-    const res = await post(token, model.id, { topServiceId: 'svc_top_perfil_24h' })
+    // svc_top_24h costs 19549 tokens per current seed.
+    const COST = 19549
+    const res = await post(token, model.id, { topServiceId: 'svc_top_24h' })
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body.tokensBalance).toBe(50)
+    expect(body.tokensBalance).toBe(100000 - COST)
     expect(body.boost.endsAt).toBeGreaterThan(now)
 
     const wallet = await db.query.brandWallets.findFirst({ where: eq(brandWallets.brandId, brand) })
-    expect(wallet?.tokensBalance).toBe(50)
+    expect(wallet?.tokensBalance).toBe(100000 - COST)
 
     const boosts = await db.select().from(profileBoosts).where(eq(profileBoosts.modelId, model.id))
     expect(boosts).toHaveLength(1)
-    expect(boosts[0].tokensSpent).toBe(50)
+    expect(boosts[0].tokensSpent).toBe(COST)
 
     const txs = await db.select().from(walletTransactions).where(eq(walletTransactions.brandId, brand))
     expect(txs).toHaveLength(1)
@@ -47,7 +49,7 @@ describe('POST /api/models/:id/boost', () => {
     const model = await createTestUser(brand, { role: 'model', email: `m-${newId()}@test.com` })
     const token = await tokenFor(admin.id, 'admin', brand)
     // No wallet row at all -> balance 0
-    const res = await post(token, model.id, { topServiceId: 'svc_top_perfil_24h' })
+    const res = await post(token, model.id, { topServiceId: 'svc_top_24h' })
     expect(res.status).toBe(400)
     const body = await res.json()
     expect(body.error).toBe('insufficient_tokens')
@@ -59,7 +61,7 @@ describe('POST /api/models/:id/boost', () => {
     const admin = await createTestUser(brandA, { role: 'admin' })
     const otherModel = await createTestUser(brandB, { role: 'model', email: `m-${newId()}@test.com` })
     const token = await tokenFor(admin.id, 'admin', brandA)
-    const res = await post(token, otherModel.id, { topServiceId: 'svc_top_perfil_24h' })
+    const res = await post(token, otherModel.id, { topServiceId: 'svc_top_24h' })
     expect(res.status).toBe(404)
   })
 
@@ -80,7 +82,7 @@ describe('POST /api/models/:id/boost', () => {
     const res = await app.request(`/api/models/${model.id}/boost`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ topServiceId: 'svc_top_perfil_24h' }),
+      body: JSON.stringify({ topServiceId: 'svc_top_24h' }),
     })
     expect(res.status).toBe(401)
   })

@@ -8,10 +8,10 @@ describe('GET /api/top-services', () => {
     const body = await res.json()
     expect(Array.isArray(body)).toBe(true)
     const codes = body.map((s: { code: string }) => s.code)
-    expect(codes).toContain('top_perfil_24h')
+    expect(codes).toContain('top_24h')
     for (const s of body) {
       expect(s.tokensCost).toBeGreaterThan(0)
-      expect(s.durationHours).toBeGreaterThan(0)
+      expect(s.durationMinutes).toBeGreaterThan(0)
     }
   })
 })

@@ -3,6 +3,6 @@ export function applyDiscount(priceCop: number, discountPercent: number | null |
   return Math.round(priceCop * (1 - pct / 100))
 }
 
-export function computeBoostExpiry(now: number, durationHours: number): number {
-  return now + durationHours * 3_600_000
+export function computeBoostExpiry(now: number, durationMinutes: number): number {
+  return now + durationMinutes * 60_000
 }

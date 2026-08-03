@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
-import { eq } from 'drizzle-orm'
+import { and, eq, isNull, count } from 'drizzle-orm'
 import { db } from '../db/client'
 import { users } from '../db/schema'
 import { authMiddleware, type AppEnv } from '../middleware/auth'
@@ -9,6 +9,10 @@ import { requireRole } from '../middleware/rbac'
 import { newId } from '../lib/ulid'
 import { hashPassword } from '../lib/hash'
 import { logAudit } from '../lib/audit'
+
+// FREE brands can publish up to this many models. Past the cap they must
+// upgrade to a paid plan (or wait for trial to activate the whole panel).
+const FREE_MODEL_CAP = 5
 
 export const usersRoutes = new Hono<AppEnv>()
 usersRoutes.use('*', authMiddleware, requireRole('admin', 'dev'))
@@ -65,6 +69,26 @@ usersRoutes.post('/', zValidator('json', createSchema), async (c) => {
     const access = await loadBrandAccess(caller.brandId)
     if (!access.isPaidEffective) {
       return c.json({ error: 'subscription_required', reason: (access as any).reason }, 403)
+    }
+  }
+
+  // FREE brands are capped at 5 published models. Trial and paid brands are
+  // unbounded (trial is a full-features preview; paid pays for the seat).
+  if (caller.role !== 'dev' && data.role === 'model') {
+    const { loadBrandAccess } = await import('../middleware/requirePaid')
+    const access = await loadBrandAccess(caller.brandId)
+    if (!access.isPaidEffective) {
+      const [{ n }] = await db
+        .select({ n: count() })
+        .from(users)
+        .where(and(
+          eq(users.brandId, caller.brandId),
+          eq(users.role, 'model'),
+          isNull(users.deletedAt),
+        ))
+      if (n >= FREE_MODEL_CAP) {
+        return c.json({ error: 'model_cap_reached', cap: FREE_MODEL_CAP }, 403)
+      }
     }
   }
 

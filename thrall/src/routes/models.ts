@@ -110,7 +110,7 @@ modelsRoutes.post('/:id/boost', authMiddleware, zValidator('json', boostSchema),
         where: eq(brandWallets.brandId, user.brandId),
       })
       const now = Date.now()
-      const endsAt = computeBoostExpiry(now, service.durationHours)
+      const endsAt = computeBoostExpiry(now, service.durationMinutes)
       const boostId = newId()
 
       // Atomic guarded decrement: if two boosts race, only one UPDATE will

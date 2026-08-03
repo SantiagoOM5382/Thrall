@@ -12,7 +12,7 @@ topServicesRoutes.get('/', async (c) => {
       code: topServices.code,
       displayName: topServices.displayName,
       tokensCost: topServices.tokensCost,
-      durationHours: topServices.durationHours,
+      durationMinutes: topServices.durationMinutes,
     })
     .from(topServices)
     .where(eq(topServices.isActive, 1))

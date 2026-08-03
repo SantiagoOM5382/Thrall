@@ -19,8 +19,10 @@ describe('applyDiscount', () => {
 })
 
 describe('computeBoostExpiry', () => {
-  it('adds durationHours in ms to now', () => {
+  it('adds durationMinutes in ms to now', () => {
     const now = 1_000_000_000_000
-    expect(computeBoostExpiry(now, 24)).toBe(now + 24 * 3_600_000)
+    // 24 hours = 1440 minutes
+    expect(computeBoostExpiry(now, 1440)).toBe(now + 1440 * 60_000)
+    expect(computeBoostExpiry(now, 15)).toBe(now + 15 * 60_000)
   })
 })

@@ -27,7 +27,7 @@ describe('POST /api/brand/subscribe', () => {
     const { checkoutUrl } = await res.json()
     const url = new URL(checkoutUrl)
     expect(url.origin + url.pathname).toBe('https://checkout.wompi.co/p/')
-    expect(url.searchParams.get('amount-in-cents')).toBe('8500000')
+    expect(url.searchParams.get('amount-in-cents')).toBe('6000000')
     const ref = url.searchParams.get('reference')!
     expect(ref.length).toBeGreaterThan(0)
     expect(url.searchParams.get('signature:integrity')?.length).toBe(64)
@@ -37,7 +37,7 @@ describe('POST /api/brand/subscribe', () => {
     const rows = await db.select().from(purchases).where(eq(purchases.wompiReference, ref))
     expect(rows).toHaveLength(1)
     expect(rows[0].status).toBe('PENDING')
-    expect(rows[0].amountCop).toBe(85000)
+    expect(rows[0].amountCop).toBe(60000)
     expect(rows[0].brandId).toBe(brand)
     expect(rows[0].userId).toBe(u.id)
     expect(rows[0].productId).toBe('prod_sub_monthly')

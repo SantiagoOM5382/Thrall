@@ -27,10 +27,10 @@ describe('POST /api/brand/purchase-tokens', () => {
     expect(res.status).toBe(200)
     const { checkoutUrl } = await res.json()
     const url = new URL(checkoutUrl)
-    expect(url.searchParams.get('amount-in-cents')).toBe('1000000') // 10000 * 100, 0% discount
+    expect(url.searchParams.get('amount-in-cents')).toBe('5000000') // 50000 * 100, 0% discount
     const ref = url.searchParams.get('reference')!
     const rows = await db.select().from(purchases).where(eq(purchases.wompiReference, ref))
-    expect(rows[0].amountCop).toBe(10000)
+    expect(rows[0].amountCop).toBe(50000)
     expect(rows[0].productId).toBe('prod_tokens_100')
   })
 
@@ -41,14 +41,15 @@ describe('POST /api/brand/purchase-tokens', () => {
     const now = Date.now()
     await db.insert(purchases).values({
       id: newId(), brandId: brand, productId: 'prod_sub_annual', userId: u.id,
-      amountCop: 980000, status: 'APPROVED', wompiReference: 'ref-sub-' + newId(),
+      amountCop: 500000, status: 'APPROVED', wompiReference: 'ref-sub-' + newId(),
       paidAt: now, createdAt: now, updatedAt: now,
     })
+    // Grandfathered brand is paid-effective so discount applies.
     const res = await post(token, { productId: 'prod_tokens_500' })
     const { checkoutUrl } = await res.json()
     const url = new URL(checkoutUrl)
-    // 40000 * (1 - 0.60) = 16000
-    expect(url.searchParams.get('amount-in-cents')).toBe('1600000')
+    // 90000 * (1 - 0.60) = 36000
+    expect(url.searchParams.get('amount-in-cents')).toBe('3600000')
   })
 
   it('rejects a SUBSCRIPTION productId with 400', async () => {

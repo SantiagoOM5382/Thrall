@@ -28,12 +28,12 @@ describe('GET /api/brand/purchases/latest', () => {
     const now = Date.now()
     await db.insert(purchases).values({
       id: newId(), brandId: brand, productId: 'prod_sub_monthly', userId: u.id,
-      amountCop: 85000, status: 'PENDING', wompiReference: 'ref-old',
+      amountCop: 60000, status: 'PENDING', wompiReference: 'ref-old',
       createdAt: now - 5000, updatedAt: now - 5000,
     })
     await db.insert(purchases).values({
       id: newId(), brandId: brand, productId: 'prod_sub_monthly', userId: u.id,
-      amountCop: 85000, status: 'APPROVED', wompiReference: 'ref-new',
+      amountCop: 60000, status: 'APPROVED', wompiReference: 'ref-new',
       paidAt: now, createdAt: now, updatedAt: now,
     })
     const res = await get(token)
@@ -41,6 +41,6 @@ describe('GET /api/brand/purchases/latest', () => {
     expect(body.latest.wompiReference).toBe('ref-new')
     expect(body.latest.status).toBe('APPROVED')
     expect(body.latest.productCode).toBe('sub_monthly')
-    expect(body.latest.amountCop).toBe(85000)
+    expect(body.latest.amountCop).toBe(60000)
   })
 })

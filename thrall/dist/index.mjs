@@ -69758,7 +69758,6 @@ usersRoutes.delete("/:id", async (c) => {
 init_drizzle_orm();
 init_client();
 init_schema();
-init_requirePaid();
 
 // src/lib/wallet.ts
 function applyDiscount(priceCop, discountPercent) {
@@ -69825,7 +69824,7 @@ modelsRoutes.get("/:id", async (c) => {
   ));
 });
 var boostSchema = external_exports.object({ topServiceId: external_exports.string().min(1) });
-modelsRoutes.post("/:id/boost", authMiddleware, requirePaid, zValidator("json", boostSchema), async (c) => {
+modelsRoutes.post("/:id/boost", authMiddleware, zValidator("json", boostSchema), async (c) => {
   const user = c.get("user");
   const { topServiceId } = c.req.valid("json");
   const modelId = c.req.param("id");

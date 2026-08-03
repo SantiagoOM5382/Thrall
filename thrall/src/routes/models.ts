@@ -5,7 +5,6 @@ import { and, eq, gt, sql } from 'drizzle-orm'
 import { db } from '../db/client'
 import { users, brandWallets, walletTransactions, topServices, profileBoosts } from '../db/schema'
 import { authMiddleware, type AppEnv } from '../middleware/auth'
-import { requirePaid } from '../middleware/requirePaid'
 import { newId } from '../lib/ulid'
 import { computeBoostExpiry } from '../lib/wallet'
 
@@ -87,7 +86,10 @@ modelsRoutes.get('/:id', async (c) => {
 
 const boostSchema = z.object({ topServiceId: z.string().min(1) })
 
-modelsRoutes.post('/:id/boost', authMiddleware, requirePaid, zValidator('json', boostSchema), async (c) => {
+// Intentionally NOT gated by requirePaid: buying/spending tokens on boosts is
+// how FREE brands monetize visibility. Only the subscription unlocks the
+// contable side of the panel; boosts are pay-per-use for everyone.
+modelsRoutes.post('/:id/boost', authMiddleware, zValidator('json', boostSchema), async (c) => {
   const user = c.get('user')
   const { topServiceId } = c.req.valid('json')
   const modelId = c.req.param('id')

@@ -26,8 +26,18 @@ brandsRoutes.post('/', zValidator('json', createSchema), async (c) => {
   const id = newId()
   const now = Date.now()
   await db.insert(brands).values({ id, name, isActive: 1, createdAt: now, updatedAt: now })
+  // Dev-created brands are grandfathered (internal/staff use); they get full
+  // access without going through the trial + payment flow.
   await db.insert(brandSubscriptions).values({
-    id: newId(), brandId: id, plan: 'pilot', isActive: 1, createdAt: now, updatedAt: now,
+    id: newId(),
+    brandId: id,
+    tier: 'paid',
+    status: 'active',
+    trialEndsAt: null,
+    paidUntil: null,
+    isGrandfathered: 1,
+    createdAt: now,
+    updatedAt: now,
   })
   await logAudit(db, { userId: caller.sub, action: 'CREATE', entity: 'brand', entityId: id })
   const created = await db.query.brands.findFirst({ where: eq(brands.id, id) })

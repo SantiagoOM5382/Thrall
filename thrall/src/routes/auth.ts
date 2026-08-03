@@ -62,13 +62,17 @@ const TRIAL_DAYS = 10
 authRoutes.post('/signup', zValidator('json', signupSchema), async (c) => {
   const data = c.req.valid('json')
 
+  // We do NOT distinguish "email taken" vs "brand taken" in responses — that
+  // would enable enumeration of registered emails / brand names. The generic
+  // 409 is intentional; the app-level lookups below are only to short-circuit
+  // before hashing/transacting, but they map to the same public error code.
   const emailTaken = await db.query.users.findFirst({ where: eq(users.email, data.email) })
-  if (emailTaken) return c.json({ error: 'email_in_use' }, 409)
+  if (emailTaken) return c.json({ error: 'conflict' }, 409)
 
   const nameTaken = await db.query.brands.findFirst({
     where: sql`lower(${brands.name}) = lower(${data.brandName})`,
   })
-  if (nameTaken) return c.json({ error: 'brand_name_in_use' }, 409)
+  if (nameTaken) return c.json({ error: 'conflict' }, 409)
 
   const now = Date.now()
   const brandId = newId()
@@ -99,11 +103,8 @@ authRoutes.post('/signup', zValidator('json', signupSchema), async (c) => {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     if (message.includes('SQLITE_CONSTRAINT')) {
-      if (message.includes('brands_name_lower_idx')) {
-        return c.json({ error: 'brand_name_in_use' }, 409)
-      }
-      if (message.includes('users_email_idx')) {
-        return c.json({ error: 'email_in_use' }, 409)
+      if (message.includes('brands_name_lower_idx') || message.includes('users_email_idx')) {
+        return c.json({ error: 'conflict' }, 409)
       }
     }
     throw err

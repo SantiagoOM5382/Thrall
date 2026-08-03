@@ -68,7 +68,7 @@ describe('POST /api/auth/signup', () => {
     })
     expect(res.status).toBe(409)
     const body = await res.json()
-    expect(body.error).toBe('email_in_use')
+    expect(body.error).toBe('conflict')
 
     const brandsAfter = await db.query.brands.findMany()
     expect(brandsAfter.length).toBe(brandsBefore.length)

@@ -53,8 +53,9 @@ export interface SignupResult {
 }
 
 const SIGNUP_ERROR_MESSAGES: Record<string, string> = {
-  email_in_use: "Ese email ya está registrado",
-  brand_name_in_use: "Ese nombre de agencia ya existe",
+  // Unified 409 — we don't reveal whether it's the email or the brand name
+  // (avoids enumeration). The copy names both so the user can check either.
+  conflict: "Ese email o nombre de agencia ya está en uso",
 }
 
 export async function signup(

@@ -26,12 +26,19 @@ function toPublicModel(m: typeof users.$inferSelect, isBoosted: boolean, images:
   }
 }
 
+// A model is only shown publicly if it has at least one contact channel —
+// otherwise there's no way for someone browsing illidan to reach them.
+function hasContact(u: typeof users.$inferSelect): boolean {
+  return Boolean(u.phone?.trim()) || Boolean(u.telegram?.trim())
+}
+
 modelsRoutes.get('/', async (c) => {
   const now = Date.now()
-  const models = await db.query.users.findMany({
+  const raw = await db.query.users.findMany({
     where: (u, { and, eq, isNull }) =>
       and(eq(u.role, 'model'), eq(u.isActive, 1), isNull(u.deletedAt)),
   })
+  const models = raw.filter(hasContact)
 
   const activeBoosts = await db
     .select({ modelId: profileBoosts.modelId })
@@ -64,7 +71,7 @@ modelsRoutes.get('/:id', async (c) => {
     where: (u, { and, eq, isNull }) =>
       and(eq(u.id, c.req.param('id')), eq(u.role, 'model'), eq(u.isActive, 1), isNull(u.deletedAt)),
   })
-  if (!model) return c.json({ error: 'Not found' }, 404)
+  if (!model || !hasContact(model)) return c.json({ error: 'Not found' }, 404)
 
   const images = await db.query.userImages.findMany({
     where: (img, { and, eq, isNull }) =>

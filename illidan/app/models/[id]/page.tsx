@@ -1,6 +1,8 @@
+import type { Metadata } from "next"
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import { apiFetchPublic, ApiError } from "@/lib/api"
+import { waLink, tgLink } from "@/lib/contacts"
 import type { Model } from "@/lib/types"
 
 export const revalidate = 3600
@@ -23,12 +25,30 @@ async function getModel(id: string): Promise<Model | null> {
   }
 }
 
-function waLink(phone: string): string {
-  return `https://wa.me/${phone.replace(/\D/g, "")}`
-}
-
-function tgLink(handle: string): string {
-  return `https://t.me/${handle.replace(/^@/, "")}`
+export async function generateMetadata(
+  { params }: { params: Promise<{ id: string }> }
+): Promise<Metadata> {
+  const { id } = await params
+  const model = await getModel(id).catch(() => null)
+  if (!model) return { title: "Perfil no disponible · Musa" }
+  const cover = model.images?.[0]?.url
+  const description = model.description?.slice(0, 155) ?? `Conoce a ${model.name} en Musa.`
+  return {
+    title: `${model.name} · Musa`,
+    description,
+    openGraph: {
+      title: `${model.name} · Musa`,
+      description,
+      type: "profile",
+      images: cover ? [{ url: cover }] : [],
+    },
+    twitter: {
+      card: cover ? "summary_large_image" : "summary",
+      title: `${model.name} · Musa`,
+      description,
+      images: cover ? [cover] : [],
+    },
+  }
 }
 
 const WhatsAppIcon = () => (

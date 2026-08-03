@@ -32,17 +32,25 @@ export async function createTestBrand(opts: {
 
 export async function createTestUser(
   brandId: string,
-  overrides: Partial<{ role: 'admin' | 'monitor' | 'model' | 'dev'; email: string; name: string }> = {}
+  overrides: Partial<{ role: 'admin' | 'monitor' | 'model' | 'dev'; email: string; name: string; phone: string | null }> = {}
 ) {
   const id = newId()
   const email = overrides.email ?? `user-${id}@test.com`
+  const role = overrides.role ?? 'admin'
+  // Models publicly appear in illidan and need a contact channel; give them a
+  // default phone unless the test explicitly overrides to null (to exercise
+  // the missing-contact path).
+  const phone = overrides.phone !== undefined
+    ? overrides.phone
+    : (role === 'model' ? '3001234567' : null)
   await db.insert(users).values({
     id,
     brandId,
     name: overrides.name ?? 'Test User',
     email,
     password: await hashPassword('password123'),
-    role: overrides.role ?? 'admin',
+    role,
+    phone,
     isActive: 1,
     createdAt: Date.now(),
     updatedAt: Date.now(),

@@ -69682,6 +69682,9 @@ usersRoutes.post("/", zValidator("json", createSchema), async (c) => {
       return c.json({ error: "subscription_required", reason: access.reason }, 403);
     }
   }
+  if (data.role === "model" && !data.phone?.trim()) {
+    return c.json({ error: "phone_required_for_model" }, 400);
+  }
   if (caller.role !== "dev" && data.role === "model") {
     const { loadBrandAccess: loadBrandAccess2 } = await Promise.resolve().then(() => (init_requirePaid(), requirePaid_exports));
     const access = await loadBrandAccess2(caller.brandId);
@@ -69802,11 +69805,15 @@ function toPublicModel(m, isBoosted, images) {
     images
   };
 }
+function hasContact(u) {
+  return Boolean(u.phone?.trim()) || Boolean(u.telegram?.trim());
+}
 modelsRoutes.get("/", async (c) => {
   const now = Date.now();
-  const models = await db.query.users.findMany({
+  const raw2 = await db.query.users.findMany({
     where: (u, { and: and3, eq: eq2, isNull: isNull3 }) => and3(eq2(u.role, "model"), eq2(u.isActive, 1), isNull3(u.deletedAt))
   });
+  const models = raw2.filter(hasContact);
   const activeBoosts = await db.select({ modelId: profileBoosts.modelId }).from(profileBoosts).where(gt(profileBoosts.endsAt, now));
   const boostedIds = new Set(activeBoosts.map((b) => b.modelId));
   const result = await Promise.all(
@@ -69830,7 +69837,7 @@ modelsRoutes.get("/:id", async (c) => {
   const model = await db.query.users.findFirst({
     where: (u, { and: and3, eq: eq2, isNull: isNull3 }) => and3(eq2(u.id, c.req.param("id")), eq2(u.role, "model"), eq2(u.isActive, 1), isNull3(u.deletedAt))
   });
-  if (!model) return c.json({ error: "Not found" }, 404);
+  if (!model || !hasContact(model)) return c.json({ error: "Not found" }, 404);
   const images = await db.query.userImages.findMany({
     where: (img, { and: and3, eq: eq2, isNull: isNull3 }) => and3(eq2(img.userId, model.id), eq2(img.isActive, 1), isNull3(img.deletedAt)),
     orderBy: (img, { asc: asc2 }) => [asc2(img.sortOrder)]

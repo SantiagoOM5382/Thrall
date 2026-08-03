@@ -46,6 +46,7 @@ describe('POST /api/users', () => {
         email: `model-${Date.now()}@test.com`,
         password: 'pass1234',
         role: 'model',
+        phone: '3009876543',
         brandId,
       }),
     })

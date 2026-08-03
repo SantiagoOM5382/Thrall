@@ -4,7 +4,9 @@ import { useEffect } from "react"
 import type { Model } from "@/lib/types"
 
 function waLink(phone: string): string {
-  return `https://wa.me/${phone.replace(/\D/g, "")}`
+  const digits = phone.replace(/\D/g, "")
+  const withCc = digits.length === 10 && digits.startsWith("3") ? `57${digits}` : digits
+  return `https://wa.me/${withCc}`
 }
 function tgLink(handle: string): string {
   return `https://t.me/${handle.replace(/^@/, "")}`

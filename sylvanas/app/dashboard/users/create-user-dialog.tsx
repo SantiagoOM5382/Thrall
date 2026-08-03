@@ -22,6 +22,9 @@ import {
 } from "@/components/ui/dialog"
 import { NativeSelect as Select } from "@/components/shared/native-select"
 
+// Phone is required for models so their showcase card in illidan can render a
+// working WhatsApp CTA; admins/monitors don't appear publicly, so it stays
+// optional for them.
 const schema = z.object({
   name: z.string().min(1, "Nombre requerido"),
   email: z.string().email("Correo inválido"),
@@ -30,7 +33,10 @@ const schema = z.object({
   phone: z.string().optional(),
   telegram: z.string().optional(),
   description: z.string().optional(),
-})
+}).refine(
+  (v) => v.role !== "model" || Boolean(v.phone && v.phone.trim().length > 0),
+  { message: "El teléfono es obligatorio para modelos", path: ["phone"] },
+)
 
 type FormValues = z.infer<typeof schema>
 
@@ -126,8 +132,14 @@ export function CreateUserDialog() {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="u-phone">Teléfono (opcional)</Label>
-              <Input id="u-phone" {...register("phone")} />
+              <Label htmlFor="u-phone">
+                WhatsApp{" "}
+                <span className="text-muted-foreground">(obligatorio para modelos)</span>
+              </Label>
+              <Input id="u-phone" placeholder="+57 300 123 4567" {...register("phone")} />
+              {errors.phone && (
+                <p className="text-sm text-destructive">{errors.phone.message}</p>
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="u-telegram">Telegram (opcional)</Label>

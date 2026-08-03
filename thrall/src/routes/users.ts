@@ -72,6 +72,13 @@ usersRoutes.post('/', zValidator('json', createSchema), async (c) => {
     }
   }
 
+  // Models publicly appear in the illidan showcase, and every showcase card
+  // needs a working WhatsApp link — so the phone field is required at signup
+  // time for role=model. Admin/monitor users have no such requirement.
+  if (data.role === 'model' && !data.phone?.trim()) {
+    return c.json({ error: 'phone_required_for_model' }, 400)
+  }
+
   // FREE brands are capped at 5 published models. Trial and paid brands are
   // unbounded (trial is a full-features preview; paid pays for the seat).
   if (caller.role !== 'dev' && data.role === 'model') {

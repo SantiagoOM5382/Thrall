@@ -27,6 +27,7 @@ describe('POST /api/users tier gating', () => {
     const token = await tokenFor(admin.id, 'admin', brand)
     const res = await post(token, {
       name: 'M', email: `m-${Date.now()}@x.co`, password: 'password123', role: 'model',
+      phone: '3001112222',
     })
     expect(res.status).toBe(201)
   })

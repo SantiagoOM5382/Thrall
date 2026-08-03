@@ -1,9 +1,13 @@
 import Link from "next/link"
 
-const DASHBOARD_URL =
-  process.env.NEXT_PUBLIC_DASHBOARD_URL ?? "http://localhost:3000"
-
-const SYLVANAS_URL = process.env.NEXT_PUBLIC_SYLVANAS_URL ?? "#"
+// Both CTAs land on the same sylvanas deployment. NEXT_PUBLIC_DASHBOARD_URL
+// is legacy; NEXT_PUBLIC_SYLVANAS_URL is the canonical one and takes precedence.
+// If neither is set (misconfigured deploy) links fall back to "#" so we don't
+// send the user to some other origin.
+const SYLVANAS_URL =
+  process.env.NEXT_PUBLIC_SYLVANAS_URL ??
+  process.env.NEXT_PUBLIC_DASHBOARD_URL ??
+  "#"
 
 export function SiteHeader() {
   return (
@@ -27,7 +31,7 @@ export function SiteHeader() {
           </a>
 
           <a
-            href={`${DASHBOARD_URL}/login`}
+            href={SYLVANAS_URL === "#" ? "#" : `${SYLVANAS_URL}/login`}
             className="rounded-full border border-[var(--gold)]/50 px-5 py-1.5 text-xs font-medium uppercase tracking-[0.14em] text-[var(--gold)] transition-colors hover:bg-[var(--gold)] hover:text-[var(--espresso)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--gold)]"
           >
             Ingresar

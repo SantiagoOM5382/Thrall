@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Cormorant_Garamond } from "next/font/google";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
+import { AgeGate } from "@/components/age-gate";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -32,6 +33,7 @@ export default function RootLayout({
       className={`${geistSans.variable} ${cormorant.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col">
+        <AgeGate />
         <SiteHeader />
         <main className="flex-1">{children}</main>
         <SiteFooter />

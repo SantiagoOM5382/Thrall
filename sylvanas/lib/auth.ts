@@ -3,8 +3,7 @@
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 import { homeRouteForRole } from "@/lib/routes"
-
-const COOKIE_NAME = "arthas_token"
+import { AUTH_COOKIE_NAME } from "@/lib/cookies"
 
 export interface LoginResult {
   error?: string
@@ -31,7 +30,7 @@ export async function login(
     }
 
     const { token, user } = await res.json()
-    ;(await cookies()).set(COOKIE_NAME, token, {
+    ;(await cookies()).set(AUTH_COOKIE_NAME, token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
@@ -80,7 +79,7 @@ export async function signup(
     }
 
     const { token, user } = await res.json()
-    ;(await cookies()).set(COOKIE_NAME, token, {
+    ;(await cookies()).set(AUTH_COOKIE_NAME, token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax",
@@ -95,6 +94,6 @@ export async function signup(
 }
 
 export async function logout() {
-  ;(await cookies()).delete(COOKIE_NAME)
+  ;(await cookies()).delete(AUTH_COOKIE_NAME)
   redirect("/login")
 }

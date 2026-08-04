@@ -3,8 +3,7 @@
 import { cookies } from "next/headers"
 import { revalidatePath } from "next/cache"
 import { apiFetch } from "@/lib/api"
-
-const COOKIE_NAME = "arthas_token"
+import { AUTH_COOKIE_NAME } from "@/lib/cookies"
 
 export async function uploadModelImage(
   userId: string,
@@ -18,7 +17,7 @@ export async function uploadModelImage(
     return { error: "Selecciona al menos una imagen" }
   }
 
-  const token = (await cookies()).get(COOKIE_NAME)?.value
+  const token = (await cookies()).get(AUTH_COOKIE_NAME)?.value
 
   async function uploadOne(file: File): Promise<string | null> {
     const fd = new FormData()
@@ -57,7 +56,7 @@ export async function uploadModelPreview(
   if (!(file instanceof File) || file.size === 0) {
     return { error: "Selecciona un archivo (mp4, webm o gif)" }
   }
-  const token = (await cookies()).get(COOKIE_NAME)?.value
+  const token = (await cookies()).get(AUTH_COOKIE_NAME)?.value
   const fd = new FormData()
   fd.append("file", file)
   const res = await fetch(

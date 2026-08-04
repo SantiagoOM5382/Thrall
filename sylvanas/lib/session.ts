@@ -1,5 +1,6 @@
 import { cookies } from "next/headers"
 import { jwtVerify } from "jose"
+import { AUTH_COOKIE_NAME } from "@/lib/cookies"
 
 export interface SessionUser {
   sub: string
@@ -8,8 +9,6 @@ export interface SessionUser {
   name: string
 }
 
-const COOKIE_NAME = "arthas_token"
-
 function getSecret(): Uint8Array {
   const secret = process.env.JWT_SECRET
   if (!secret) throw new Error("JWT_SECRET env var is required")
@@ -17,7 +16,7 @@ function getSecret(): Uint8Array {
 }
 
 export async function getSession(): Promise<SessionUser | null> {
-  const token = (await cookies()).get(COOKIE_NAME)?.value
+  const token = (await cookies()).get(AUTH_COOKIE_NAME)?.value
   if (!token) return null
   try {
     const { payload } = await jwtVerify(token, getSecret())

@@ -1,6 +1,5 @@
 import { cookies } from "next/headers"
-
-const COOKIE_NAME = "arthas_token"
+import { AUTH_COOKIE_NAME } from "@/lib/cookies"
 
 export class ApiError extends Error {
   constructor(
@@ -20,7 +19,7 @@ export async function apiFetch<T>(
   path: string,
   options?: RequestInit
 ): Promise<T> {
-  const token = (await cookies()).get(COOKIE_NAME)?.value
+  const token = (await cookies()).get(AUTH_COOKIE_NAME)?.value
   const res = await fetch(`${process.env.THRALL_URL}/api${path}`, {
     ...options,
     headers: {

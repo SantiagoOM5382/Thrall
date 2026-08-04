@@ -2,21 +2,8 @@
 
 import { useEffect } from "react"
 import type { Model } from "@/lib/types"
-
-function waLink(phone: string): string {
-  const digits = phone.replace(/\D/g, "")
-  const withCc = digits.length === 10 && digits.startsWith("3") ? `57${digits}` : digits
-  return `https://wa.me/${withCc}`
-}
-function tgLink(handle: string): string {
-  return `https://t.me/${handle.replace(/^@/, "")}`
-}
-
-const WhatsAppIcon = () => (
-  <svg viewBox="0 0 24 24" className="size-4" fill="currentColor" aria-hidden="true">
-    <path d="M17.5 14.4c-.3-.2-1.7-.9-2-1-.3-.1-.4-.1-.6.1-.2.3-.7 1-.9 1.1-.2.2-.3.2-.6.1-.3-.2-1.2-.5-2.3-1.4-.9-.8-1.4-1.7-1.6-2-.2-.3 0-.5.1-.6.1-.1.3-.3.4-.5.1-.2.2-.3.3-.5.1-.2 0-.4 0-.5-.1-.1-.6-1.5-.9-2-.2-.5-.4-.4-.6-.4h-.5c-.2 0-.5.1-.7.3-.2.3-.9.9-.9 2.2s1 2.6 1.1 2.7c.1.2 2 3 4.8 4.2.7.3 1.2.5 1.6.6.7.2 1.3.2 1.8.1.5-.1 1.7-.7 1.9-1.4.2-.7.2-1.2.2-1.4-.1-.1-.3-.2-.6-.3M12 21.5a9.5 9.5 0 0 1-4.8-1.3l-.3-.2-3.6.9.9-3.5-.2-.4A9.5 9.5 0 1 1 12 21.5m0-21a11.5 11.5 0 0 0-9.8 17.5L.5 24l6.3-1.6A11.5 11.5 0 1 0 12 .5" />
-  </svg>
-)
+import { waLink, tgLink } from "@/lib/contacts"
+import { WhatsAppIcon } from "@/components/whatsapp-icon"
 
 export function ModelModal({
   model,

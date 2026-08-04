@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import { jwtVerify } from "jose"
-
-const COOKIE_NAME = "arthas_token"
+import { AUTH_COOKIE_NAME } from "@/lib/cookies"
 
 function getSecret(): Uint8Array {
   const secret = process.env.JWT_SECRET
@@ -22,12 +21,12 @@ async function isValid(token: string | undefined): Promise<boolean> {
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
-  const token = request.cookies.get(COOKIE_NAME)?.value
+  const token = request.cookies.get(AUTH_COOKIE_NAME)?.value
 
   if (pathname.startsWith("/dashboard")) {
     if (!(await isValid(token))) {
       const res = NextResponse.redirect(new URL("/login", request.url))
-      res.cookies.delete(COOKIE_NAME)
+      res.cookies.delete(AUTH_COOKIE_NAME)
       return res
     }
   }

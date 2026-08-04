@@ -6518,6 +6518,7 @@ var init_schema = __esm({
     brands = sqliteTable("brands", {
       id: text("id").primaryKey(),
       name: text("name").notNull(),
+      kind: text("kind", { enum: ["agency", "solo"] }).notNull().default("agency"),
       isActive: integer2("is_active").notNull().default(1),
       createdAt: integer2("created_at").notNull(),
       updatedAt: integer2("updated_at").notNull()
@@ -69538,7 +69539,10 @@ var signupSchema = external_exports.object({
   brandName: external_exports.string().trim().min(1).max(80),
   adminName: external_exports.string().trim().min(1).max(80),
   email: external_exports.string().trim().toLowerCase().email(),
-  password: external_exports.string().min(8)
+  password: external_exports.string().min(8),
+  // 'agency' (default) = multi-model agency panel. 'solo' = single independent
+  // model who signs up for her own profile; enforced 1-model cap in users route.
+  kind: external_exports.enum(["agency", "solo"]).optional().default("agency")
 });
 var TRIAL_DAYS = 10;
 authRoutes.post("/signup", zValidator("json", signupSchema), async (c) => {
@@ -69560,6 +69564,7 @@ authRoutes.post("/signup", zValidator("json", signupSchema), async (c) => {
       await tx.insert(brands).values({
         id: brandId,
         name: data.brandName,
+        kind: data.kind,
         isActive: 1,
         createdAt: now,
         updatedAt: now
@@ -69687,15 +69692,21 @@ usersRoutes.post("/", zValidator("json", createSchema), async (c) => {
     return c.json({ error: "phone_required_for_model" }, 400);
   }
   if (caller.role !== "dev" && data.role === "model") {
-    const { loadBrandAccess: loadBrandAccess2 } = await Promise.resolve().then(() => (init_requirePaid(), requirePaid_exports));
-    const access = await loadBrandAccess2(caller.brandId);
-    if (!access.isPaidEffective) {
-      const [{ n }] = await db.select({ n: count() }).from(users).where(and(
-        eq(users.brandId, caller.brandId),
-        eq(users.role, "model"),
-        isNull(users.deletedAt)
-      ));
-      if (n >= FREE_MODEL_CAP) {
+    const brand = await db.query.brands.findFirst({
+      where: eq(brands.id, caller.brandId)
+    });
+    const [{ n }] = await db.select({ n: count() }).from(users).where(and(
+      eq(users.brandId, caller.brandId),
+      eq(users.role, "model"),
+      isNull(users.deletedAt)
+    ));
+    if (brand?.kind === "solo" && n >= 1) {
+      return c.json({ error: "solo_brand_single_model" }, 403);
+    }
+    if (brand?.kind !== "solo") {
+      const { loadBrandAccess: loadBrandAccess2 } = await Promise.resolve().then(() => (init_requirePaid(), requirePaid_exports));
+      const access = await loadBrandAccess2(caller.brandId);
+      if (!access.isPaidEffective && n >= FREE_MODEL_CAP) {
         return c.json({ error: "model_cap_reached", cap: FREE_MODEL_CAP }, 403);
       }
     }

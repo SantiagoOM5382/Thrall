@@ -55,6 +55,9 @@ const signupSchema = z.object({
   adminName: z.string().trim().min(1).max(80),
   email: z.string().trim().toLowerCase().email(),
   password: z.string().min(8),
+  // 'agency' (default) = multi-model agency panel. 'solo' = single independent
+  // model who signs up for her own profile; enforced 1-model cap in users route.
+  kind: z.enum(['agency', 'solo']).optional().default('agency'),
 })
 
 const TRIAL_DAYS = 10
@@ -84,7 +87,7 @@ authRoutes.post('/signup', zValidator('json', signupSchema), async (c) => {
   try {
     await db.transaction(async (tx) => {
       await tx.insert(brands).values({
-        id: brandId, name: data.brandName, isActive: 1, createdAt: now, updatedAt: now,
+        id: brandId, name: data.brandName, kind: data.kind, isActive: 1, createdAt: now, updatedAt: now,
       })
       await tx.insert(brandSubscriptions).values({
         id: subId, brandId,

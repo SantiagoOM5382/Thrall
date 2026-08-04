@@ -61,13 +61,14 @@ export async function signup(
   brandName: string,
   adminName: string,
   email: string,
-  password: string
+  password: string,
+  kind: "agency" | "solo" = "agency",
 ): Promise<SignupResult> {
   try {
     const res = await fetch(`${process.env.THRALL_URL}/api/auth/signup`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ brandName, adminName, email, password }),
+      body: JSON.stringify({ brandName, adminName, email, password, kind }),
       cache: "no-store",
     })
 

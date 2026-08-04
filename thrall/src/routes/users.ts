@@ -3,7 +3,7 @@ import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
 import { and, eq, isNull, count } from 'drizzle-orm'
 import { db } from '../db/client'
-import { users } from '../db/schema'
+import { users, brands } from '../db/schema'
 import { authMiddleware, type AppEnv } from '../middleware/auth'
 import { requireRole } from '../middleware/rbac'
 import { newId } from '../lib/ulid'
@@ -79,21 +79,33 @@ usersRoutes.post('/', zValidator('json', createSchema), async (c) => {
     return c.json({ error: 'phone_required_for_model' }, 400)
   }
 
-  // FREE brands are capped at 5 published models. Trial and paid brands are
-  // unbounded (trial is a full-features preview; paid pays for the seat).
+  // Model creation caps:
+  //   - solo brands: exactly 1 model, ever. Enforced regardless of paid tier
+  //     because a solo account is the model's own profile by definition — if
+  //     she wants to add colleagues she needs to convert to an agency.
+  //   - free agency brands: up to FREE_MODEL_CAP.
+  //   - paid/trial/grandfathered agencies: unbounded.
   if (caller.role !== 'dev' && data.role === 'model') {
-    const { loadBrandAccess } = await import('../middleware/requirePaid')
-    const access = await loadBrandAccess(caller.brandId)
-    if (!access.isPaidEffective) {
-      const [{ n }] = await db
-        .select({ n: count() })
-        .from(users)
-        .where(and(
-          eq(users.brandId, caller.brandId),
-          eq(users.role, 'model'),
-          isNull(users.deletedAt),
-        ))
-      if (n >= FREE_MODEL_CAP) {
+    const brand = await db.query.brands.findFirst({
+      where: eq(brands.id, caller.brandId),
+    })
+    const [{ n }] = await db
+      .select({ n: count() })
+      .from(users)
+      .where(and(
+        eq(users.brandId, caller.brandId),
+        eq(users.role, 'model'),
+        isNull(users.deletedAt),
+      ))
+
+    if (brand?.kind === 'solo' && n >= 1) {
+      return c.json({ error: 'solo_brand_single_model' }, 403)
+    }
+
+    if (brand?.kind !== 'solo') {
+      const { loadBrandAccess } = await import('../middleware/requirePaid')
+      const access = await loadBrandAccess(caller.brandId)
+      if (!access.isPaidEffective && n >= FREE_MODEL_CAP) {
         return c.json({ error: 'model_cap_reached', cap: FREE_MODEL_CAP }, 403)
       }
     }

@@ -6,17 +6,20 @@ import Link from "next/link"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
-import { Loader2, AlertCircle } from "lucide-react"
+import { Loader2, AlertCircle, Building2, User } from "lucide-react"
 import { signup } from "@/lib/auth"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { AuthShell } from "@/components/auth/auth-shell"
 import { PasswordInput } from "@/components/auth/password-input"
+import { cn } from "@/lib/utils"
 
 const signupSchema = z
   .object({
-    brandName: z.string().min(1, "El nombre de la agencia es requerido"),
+    // For agency signups this is the agency name; for solo signups this is
+    // the model's public/artist name (used as brand.name + publicly visible).
+    brandName: z.string().min(1, "El nombre es requerido"),
     adminName: z.string().min(1, "Tu nombre es requerido"),
     email: z.string().email("Correo inválido"),
     password: z.string().min(8, "Mínimo 8 caracteres"),
@@ -28,10 +31,12 @@ const signupSchema = z
   })
 
 type SignupForm = z.infer<typeof signupSchema>
+type Kind = "agency" | "solo"
 
 export default function SignupPage() {
   const router = useRouter()
   const [serverError, setServerError] = useState<string | null>(null)
+  const [kind, setKind] = useState<Kind>("agency")
   const {
     register,
     handleSubmit,
@@ -44,7 +49,8 @@ export default function SignupPage() {
       data.brandName,
       data.adminName,
       data.email,
-      data.password
+      data.password,
+      kind,
     )
     if (result.error) {
       setServerError(result.error)
@@ -56,12 +62,18 @@ export default function SignupPage() {
     }
   }
 
+  const isSolo = kind === "solo"
+
   return (
     <AuthShell
-      eyebrow="Crea tu agencia"
-      headline="Todo tu negocio de modelos, en un solo panel."
+      eyebrow={isSolo ? "Crea tu perfil" : "Crea tu agencia"}
+      headline={
+        isSolo
+          ? "Publica tu perfil y consigue clientes."
+          : "Todo tu negocio de modelos, en un solo panel."
+      }
     >
-      <div className="mb-7 space-y-1.5">
+      <div className="mb-6 space-y-1.5">
         <h2 className="font-heading text-2xl font-semibold tracking-tight">
           Crea tu cuenta
         </h2>
@@ -70,13 +82,30 @@ export default function SignupPage() {
         </p>
       </div>
 
+      <div className="mb-6 grid grid-cols-2 gap-2 rounded-lg bg-muted p-1">
+        <KindOption
+          selected={kind === "agency"}
+          onClick={() => setKind("agency")}
+          icon={<Building2 className="size-4" />}
+          label="Soy agencia"
+        />
+        <KindOption
+          selected={kind === "solo"}
+          onClick={() => setKind("solo")}
+          icon={<User className="size-4" />}
+          label="Soy modelo"
+        />
+      </div>
+
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4" noValidate>
         <div className="space-y-1.5">
-          <Label htmlFor="brandName">Nombre de la agencia</Label>
+          <Label htmlFor="brandName">
+            {isSolo ? "Tu nombre artístico" : "Nombre de la agencia"}
+          </Label>
           <Input
             id="brandName"
             autoComplete="organization"
-            placeholder="Mi Agencia"
+            placeholder={isSolo ? "Sofía" : "Mi Agencia"}
             className="h-10"
             aria-invalid={!!errors.brandName}
             {...register("brandName")}
@@ -87,7 +116,9 @@ export default function SignupPage() {
         </div>
 
         <div className="space-y-1.5">
-          <Label htmlFor="adminName">Tu nombre</Label>
+          <Label htmlFor="adminName">
+            {isSolo ? "Tu nombre real" : "Tu nombre"}
+          </Label>
           <Input
             id="adminName"
             autoComplete="name"
@@ -107,7 +138,7 @@ export default function SignupPage() {
             id="email"
             type="email"
             autoComplete="email"
-            placeholder="admin@tuagencia.co"
+            placeholder={isSolo ? "sofia@correo.com" : "admin@tuagencia.co"}
             className="h-10"
             aria-invalid={!!errors.email}
             {...register("email")}
@@ -144,6 +175,14 @@ export default function SignupPage() {
           </div>
         </div>
 
+        {isSolo && (
+          <p className="rounded-md bg-accent px-2.5 py-2 text-xs text-accent-foreground">
+            Tu cuenta permite publicar únicamente tu propio perfil. Si más
+            adelante quieres agregar otras modelos, contáctanos y la convertimos
+            en agencia.
+          </p>
+        )}
+
         {serverError && (
           <div
             role="alert"
@@ -156,7 +195,9 @@ export default function SignupPage() {
 
         <Button type="submit" className="h-10 w-full" disabled={isSubmitting}>
           {isSubmitting && <Loader2 className="size-4 animate-spin" />}
-          {isSubmitting ? "Creando tu agencia…" : "Crear cuenta"}
+          {isSubmitting
+            ? isSolo ? "Creando tu perfil…" : "Creando tu agencia…"
+            : "Crear cuenta"}
         </Button>
       </form>
 
@@ -167,5 +208,30 @@ export default function SignupPage() {
         </Link>
       </p>
     </AuthShell>
+  )
+}
+
+function KindOption({
+  selected, onClick, icon, label,
+}: {
+  selected: boolean
+  onClick: () => void
+  icon: React.ReactNode
+  label: string
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "flex items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+        selected
+          ? "bg-background text-foreground shadow-sm"
+          : "text-muted-foreground hover:text-foreground",
+      )}
+    >
+      {icon}
+      {label}
+    </button>
   )
 }

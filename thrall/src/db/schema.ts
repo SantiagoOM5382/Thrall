@@ -4,6 +4,7 @@ import { sql } from 'drizzle-orm'
 export const brands = sqliteTable('brands', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
+  kind: text('kind', { enum: ['agency', 'solo'] }).notNull().default('agency'),
   isActive: integer('is_active').notNull().default(1),
   createdAt: integer('created_at').notNull(),
   updatedAt: integer('updated_at').notNull(),

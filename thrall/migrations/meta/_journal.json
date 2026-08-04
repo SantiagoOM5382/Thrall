@@ -64,6 +64,13 @@
       "when": 1784270000000,
       "tag": "0008_users_preview_url",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "6",
+      "when": 1784350000000,
+      "tag": "0009_brands_kind",
+      "breakpoints": true
     }
   ]
 }

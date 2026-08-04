@@ -21,6 +21,7 @@ function toPublicModel(m: typeof users.$inferSelect, isBoosted: boolean, images:
     description: m.description,
     phone: m.phone,
     telegram: m.telegram,
+    previewUrl: m.previewUrl,
     isBoosted,
     images,
   }

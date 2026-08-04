@@ -15,6 +15,7 @@ export interface Model {
   phone: string | null
   telegram: string | null
   description: string | null
+  previewUrl: string | null
   isActive: number
   createdAt: number
   updatedAt: number

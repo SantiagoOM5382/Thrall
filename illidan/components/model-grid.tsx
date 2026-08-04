@@ -3,6 +3,7 @@
 import { useState } from "react"
 import type { Model } from "@/lib/types"
 import { ModelModal } from "@/components/model-modal"
+import { ModelCardMedia } from "@/components/model-card-media"
 
 function initials(name: string): string {
   return name
@@ -35,20 +36,16 @@ export function ModelGrid({ models }: { models: Model[] }) {
                       Destacada
                     </span>
                   )}
-                  {cover ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={cover}
-                      alt={model.name}
-                      className="h-full w-full object-cover transition-transform duration-[900ms] ease-out group-hover:scale-[1.04]"
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center">
+                  <ModelCardMedia
+                    name={model.name}
+                    cover={cover}
+                    previewUrl={model.previewUrl}
+                    fallback={
                       <span className="font-display text-6xl text-[var(--gold)]/40">
                         {initials(model.name)}
                       </span>
-                    </div>
-                  )}
+                    }
+                  />
 
                   <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/25 to-transparent p-5 pt-16">
                     <p className="mb-1 text-[0.65rem] uppercase tracking-[0.2em] text-[var(--gold)] opacity-0 transition-opacity duration-500 group-hover:opacity-100">

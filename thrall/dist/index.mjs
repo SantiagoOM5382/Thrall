@@ -6534,6 +6534,7 @@ var init_schema = __esm({
       phone: text("phone"),
       telegram: text("telegram"),
       description: text("description"),
+      previewUrl: text("preview_url"),
       isActive: integer2("is_active").notNull().default(1),
       createdAt: integer2("created_at").notNull(),
       updatedAt: integer2("updated_at").notNull(),
@@ -69801,6 +69802,7 @@ function toPublicModel(m, isBoosted, images) {
     description: m.description,
     phone: m.phone,
     telegram: m.telegram,
+    previewUrl: m.previewUrl,
     isBoosted,
     images
   };
@@ -71364,6 +71366,28 @@ var utf8Encoder = new TextEncoder();
 
 // node_modules/@vercel/blob/dist/index.js
 var import_undici2 = __toESM(require_undici(), 1);
+async function del(urlOrPathname, options) {
+  const urls = Array.isArray(urlOrPathname) ? urlOrPathname : [urlOrPathname];
+  if ((options == null ? void 0 : options.ifMatch) && urls.length > 1) {
+    throw new BlobError("ifMatch can only be used when deleting a single URL.");
+  }
+  const headers = {
+    "content-type": "application/json"
+  };
+  if (options == null ? void 0 : options.ifMatch) {
+    headers["x-if-match"] = options.ifMatch;
+  }
+  await requestApi(
+    "/delete",
+    {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ urls }),
+      signal: options == null ? void 0 : options.abortSignal
+    },
+    options
+  );
+}
 var put = createPutMethod({
   allowedOptions: [
     "cacheControlMaxAge",
@@ -71411,6 +71435,12 @@ var completeMultipartUpload2 = createCompleteMultipartUploadMethod({
 // src/routes/images.ts
 init_client();
 init_schema();
+var PREVIEW_ALLOWED_TYPES = /* @__PURE__ */ new Set([
+  "video/mp4",
+  "video/webm",
+  "image/gif"
+]);
+var PREVIEW_MAX_BYTES = 15 * 1024 * 1024;
 var imagesRoutes = new Hono2();
 imagesRoutes.use("*", authMiddleware);
 imagesRoutes.post("/users/:userId", async (c) => {
@@ -71470,6 +71500,73 @@ imagesRoutes.delete("/:id", async (c) => {
   const now = Date.now();
   await db.update(userImages).set({ deletedAt: now, updatedAt: now, isActive: 0 }).where(eq(userImages.id, imageId));
   await logAudit(db, { userId: caller.sub, action: "DELETE", entity: "image", entityId: imageId });
+  return c.json({ ok: true });
+});
+imagesRoutes.post("/users/:userId/preview", async (c) => {
+  const caller = c.get("user");
+  const { userId } = c.req.param();
+  const targetUser = await db.query.users.findFirst({
+    where: (u, { and: andFn, eq: eqFn, isNull: isNull3 }) => andFn(eqFn(u.id, userId), isNull3(u.deletedAt))
+  });
+  if (!targetUser) return c.json({ error: "Not found" }, 404);
+  if (targetUser.role !== "model") return c.json({ error: "preview_only_for_models" }, 400);
+  if (caller.role === "model" && caller.sub !== userId) {
+    return c.json({ error: "Forbidden" }, 403);
+  }
+  if (caller.role !== "dev" && targetUser.brandId !== caller.brandId) {
+    return c.json({ error: "Forbidden" }, 403);
+  }
+  const body = await c.req.parseBody();
+  const file2 = body["file"];
+  if (!file2 || typeof file2 === "string") {
+    return c.json({ error: "No file provided" }, 400);
+  }
+  if (!PREVIEW_ALLOWED_TYPES.has(file2.type)) {
+    return c.json({ error: "invalid_type", allowed: [...PREVIEW_ALLOWED_TYPES] }, 400);
+  }
+  if (file2.size > PREVIEW_MAX_BYTES) {
+    return c.json({ error: "file_too_large", maxBytes: PREVIEW_MAX_BYTES }, 400);
+  }
+  let blob2;
+  try {
+    blob2 = await put(`models/${userId}/preview-${newId()}`, file2, { access: "public" });
+  } catch (e) {
+    const message2 = e instanceof Error ? e.message : "Blob upload failed";
+    return c.json({ error: message2 }, 500);
+  }
+  if (targetUser.previewUrl) {
+    try {
+      await del(targetUser.previewUrl);
+    } catch {
+    }
+  }
+  const now = Date.now();
+  await db.update(users).set({ previewUrl: blob2.url, updatedAt: now }).where(eq(users.id, userId));
+  await logAudit(db, { userId: caller.sub, action: "UPDATE", entity: "user_preview", entityId: userId });
+  return c.json({ previewUrl: blob2.url }, 201);
+});
+imagesRoutes.delete("/users/:userId/preview", async (c) => {
+  const caller = c.get("user");
+  const { userId } = c.req.param();
+  const targetUser = await db.query.users.findFirst({
+    where: (u, { and: andFn, eq: eqFn, isNull: isNull3 }) => andFn(eqFn(u.id, userId), isNull3(u.deletedAt))
+  });
+  if (!targetUser) return c.json({ error: "Not found" }, 404);
+  if (caller.role === "model" && caller.sub !== userId) {
+    return c.json({ error: "Forbidden" }, 403);
+  }
+  if (caller.role !== "dev" && targetUser.brandId !== caller.brandId) {
+    return c.json({ error: "Forbidden" }, 403);
+  }
+  if (targetUser.previewUrl) {
+    try {
+      await del(targetUser.previewUrl);
+    } catch {
+    }
+  }
+  const now = Date.now();
+  await db.update(users).set({ previewUrl: null, updatedAt: now }).where(eq(users.id, userId));
+  await logAudit(db, { userId: caller.sub, action: "DELETE", entity: "user_preview", entityId: userId });
   return c.json({ ok: true });
 });
 

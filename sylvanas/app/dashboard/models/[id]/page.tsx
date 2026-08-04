@@ -1,6 +1,6 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
-import { ArrowLeft, UserCircle, Images } from "lucide-react"
+import { ArrowLeft, UserCircle, Images, Film } from "lucide-react"
 import { apiFetch, ApiError } from "@/lib/api"
 import type { Model, User } from "@/lib/types"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -8,6 +8,7 @@ import { ImageUploader } from "./image-uploader"
 import { DeleteImageButton } from "./delete-image-button"
 import { ProfileEditForm } from "./profile-edit-form"
 import { BoostButton } from "./boost-button"
+import { PreviewUploader } from "./preview-uploader"
 
 export const dynamic = "force-dynamic"
 
@@ -112,6 +113,22 @@ export default async function ModelDetailPage({
               description: user.description ?? "",
             }}
           />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Film className="size-4 text-muted-foreground" />
+            Preview animado
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            Video corto o gif que se reproduce en la vitrina cuando alguien pasa
+            el cursor sobre este perfil. Muestra lo que quieres que vean primero.
+          </p>
+          <PreviewUploader userId={id} currentUrl={user.previewUrl ?? null} />
         </CardContent>
       </Card>
 

@@ -21,6 +21,7 @@ export const users = sqliteTable('users', {
   phone: text('phone'),
   telegram: text('telegram'),
   description: text('description'),
+  previewUrl: text('preview_url'),
   isActive: integer('is_active').notNull().default(1),
   createdAt: integer('created_at').notNull(),
   updatedAt: integer('updated_at').notNull(),

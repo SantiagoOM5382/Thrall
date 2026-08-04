@@ -49,6 +49,51 @@ export async function uploadModelImage(
   return { uploaded }
 }
 
+export async function uploadModelPreview(
+  userId: string,
+  formData: FormData,
+): Promise<{ error?: string; previewUrl?: string }> {
+  const file = formData.get("file")
+  if (!(file instanceof File) || file.size === 0) {
+    return { error: "Selecciona un archivo (mp4, webm o gif)" }
+  }
+  const token = (await cookies()).get(COOKIE_NAME)?.value
+  const fd = new FormData()
+  fd.append("file", file)
+  const res = await fetch(
+    `${process.env.THRALL_URL}/api/images/users/${userId}/preview`,
+    {
+      method: "POST",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+      body: fd,
+      cache: "no-store",
+    },
+  )
+  const body = await res.json().catch(() => ({}))
+  if (!res.ok) {
+    const map: Record<string, string> = {
+      invalid_type: "Solo se aceptan MP4, WebM o GIF",
+      file_too_large: "El archivo excede el tamaño máximo (15 MB)",
+      preview_only_for_models: "Solo se puede subir preview a modelos",
+    }
+    return { error: map[body.error] ?? body.error ?? "No se pudo subir el preview" }
+  }
+  revalidatePath(`/dashboard/models/${userId}`)
+  return { previewUrl: body.previewUrl }
+}
+
+export async function deleteModelPreview(
+  userId: string,
+): Promise<{ error?: string }> {
+  try {
+    await apiFetch(`/images/users/${userId}/preview`, { method: "DELETE" })
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Error al eliminar preview" }
+  }
+  revalidatePath(`/dashboard/models/${userId}`)
+  return {}
+}
+
 export async function deleteModelImage(
   imageId: string,
   userId: string

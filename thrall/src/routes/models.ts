@@ -33,13 +33,23 @@ function hasContact(u: typeof users.$inferSelect): boolean {
   return Boolean(u.phone?.trim()) || Boolean(u.telegram?.trim())
 }
 
+// Response shape: paginated object with total for the UI's page counter.
+// Sitemap / generateStaticParams pass a large limit to fetch everything.
+const DEFAULT_LIMIT = 10
+const MAX_LIMIT = 500
+
 modelsRoutes.get('/', async (c) => {
   const now = Date.now()
+  const rawLimit = Number(c.req.query('limit') ?? DEFAULT_LIMIT)
+  const rawOffset = Number(c.req.query('offset') ?? 0)
+  const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(rawLimit, 1), MAX_LIMIT) : DEFAULT_LIMIT
+  const offset = Number.isFinite(rawOffset) ? Math.max(rawOffset, 0) : 0
+
   const raw = await db.query.users.findMany({
     where: (u, { and, eq, isNull }) =>
       and(eq(u.role, 'model'), eq(u.isActive, 1), isNull(u.deletedAt)),
   })
-  const models = raw.filter(hasContact)
+  const eligible = raw.filter(hasContact)
 
   const activeBoosts = await db
     .select({ modelId: profileBoosts.modelId })
@@ -47,8 +57,12 @@ modelsRoutes.get('/', async (c) => {
     .where(gt(profileBoosts.endsAt, now))
   const boostedIds = new Set(activeBoosts.map((b) => b.modelId))
 
-  const result = await Promise.all(
-    models.map(async (m) => {
+  // Sort BEFORE paginating so boosted profiles stay on page 1.
+  eligible.sort((a, b) => Number(boostedIds.has(b.id)) - Number(boostedIds.has(a.id)))
+  const page = eligible.slice(offset, offset + limit)
+
+  const models = await Promise.all(
+    page.map(async (m) => {
       const images = await db.query.userImages.findMany({
         where: (img, { and, eq, isNull }) =>
           and(eq(img.userId, m.id), eq(img.isActive, 1), isNull(img.deletedAt)),
@@ -62,8 +76,7 @@ modelsRoutes.get('/', async (c) => {
     })
   )
 
-  result.sort((a, b) => Number(b.isBoosted) - Number(a.isBoosted))
-  return c.json(result)
+  return c.json({ models, total: eligible.length, limit, offset })
 })
 
 modelsRoutes.get('/:id', async (c) => {

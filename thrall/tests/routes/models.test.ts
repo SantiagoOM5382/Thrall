@@ -17,13 +17,16 @@ beforeEach(async () => {
 })
 
 describe('GET /api/models', () => {
-  it('returns public list without auth', async () => {
+  it('returns paginated list without auth', async () => {
     await createTestUser(brandId, { role: 'model', email: `m-${Date.now()}@test.com`, name: 'Ana' })
     const res = await app.request('/api/models')
     expect(res.status).toBe(200)
-    const body = await res.json() as any[]
-    expect(Array.isArray(body)).toBe(true)
-    expect(body.every((u: any) => u.password === undefined)).toBe(true)
+    const body = await res.json() as { models: any[]; total: number; limit: number; offset: number }
+    expect(Array.isArray(body.models)).toBe(true)
+    expect(typeof body.total).toBe('number')
+    expect(body.limit).toBe(10)
+    expect(body.offset).toBe(0)
+    expect(body.models.every((u: any) => u.password === undefined)).toBe(true)
   })
 })
 
@@ -62,11 +65,11 @@ describe('GET /api/models — boost ordering', () => {
     })
 
     const res = await fullApp.request('/api/models')
-    const body = await res.json() as any[]
-    const boostedEntry = body.find((m) => m.id === boosted.id)
-    const plainEntry = body.find((m) => m.id === plain.id)
+    const body = await res.json() as { models: any[] }
+    const boostedEntry = body.models.find((m) => m.id === boosted.id)
+    const plainEntry = body.models.find((m) => m.id === plain.id)
     expect(boostedEntry.isBoosted).toBe(true)
     expect(plainEntry.isBoosted).toBe(false)
-    expect(body.indexOf(boostedEntry)).toBeLessThan(body.indexOf(plainEntry))
+    expect(body.models.indexOf(boostedEntry)).toBeLessThan(body.models.indexOf(plainEntry))
   })
 })

@@ -69821,16 +69821,24 @@ function toPublicModel(m, isBoosted, images) {
 function hasContact(u) {
   return Boolean(u.phone?.trim()) || Boolean(u.telegram?.trim());
 }
+var DEFAULT_LIMIT = 10;
+var MAX_LIMIT = 500;
 modelsRoutes.get("/", async (c) => {
   const now = Date.now();
+  const rawLimit = Number(c.req.query("limit") ?? DEFAULT_LIMIT);
+  const rawOffset = Number(c.req.query("offset") ?? 0);
+  const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(rawLimit, 1), MAX_LIMIT) : DEFAULT_LIMIT;
+  const offset = Number.isFinite(rawOffset) ? Math.max(rawOffset, 0) : 0;
   const raw2 = await db.query.users.findMany({
     where: (u, { and: and3, eq: eq2, isNull: isNull3 }) => and3(eq2(u.role, "model"), eq2(u.isActive, 1), isNull3(u.deletedAt))
   });
-  const models = raw2.filter(hasContact);
+  const eligible = raw2.filter(hasContact);
   const activeBoosts = await db.select({ modelId: profileBoosts.modelId }).from(profileBoosts).where(gt(profileBoosts.endsAt, now));
   const boostedIds = new Set(activeBoosts.map((b) => b.modelId));
-  const result = await Promise.all(
-    models.map(async (m) => {
+  eligible.sort((a, b) => Number(boostedIds.has(b.id)) - Number(boostedIds.has(a.id)));
+  const page = eligible.slice(offset, offset + limit);
+  const models = await Promise.all(
+    page.map(async (m) => {
       const images = await db.query.userImages.findMany({
         where: (img, { and: and3, eq: eq2, isNull: isNull3 }) => and3(eq2(img.userId, m.id), eq2(img.isActive, 1), isNull3(img.deletedAt)),
         orderBy: (img, { asc: asc2 }) => [asc2(img.sortOrder)]
@@ -69842,8 +69850,7 @@ modelsRoutes.get("/", async (c) => {
       );
     })
   );
-  result.sort((a, b) => Number(b.isBoosted) - Number(a.isBoosted));
-  return c.json(result);
+  return c.json({ models, total: eligible.length, limit, offset });
 });
 modelsRoutes.get("/:id", async (c) => {
   const now = Date.now();

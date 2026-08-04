@@ -11,7 +11,7 @@ export const revalidate = 60
 
 export async function generateStaticParams() {
   try {
-    const models = await apiFetchPublic<Model[]>("/models")
+    const { models } = await apiFetchPublic<{ models: Model[] }>("/models?limit=500")
     return models.map((m) => ({ id: m.id }))
   } catch {
     return []

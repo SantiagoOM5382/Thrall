@@ -12,6 +12,16 @@ const PREVIEW_ALLOWED_TYPES = new Set([
 ])
 const PREVIEW_MAX_BYTES = 15 * 1024 * 1024 // 15MB — enough for a short mp4 clip
 
+// The client-side player detects preview kind by URL suffix, so the blob path
+// MUST include the extension. Vercel Blob otherwise stores whatever path we
+// pass verbatim — without an extension the preview silently falls back to the
+// static photo on illidan.
+const PREVIEW_EXT: Record<string, string> = {
+  'video/mp4': 'mp4',
+  'video/webm': 'webm',
+  'image/gif': 'gif',
+}
+
 export const imagesRoutes = new Hono<AppEnv>()
 imagesRoutes.use('*', authMiddleware)
 
@@ -126,7 +136,8 @@ imagesRoutes.post('/users/:userId/preview', async (c) => {
 
   let blob
   try {
-    blob = await put(`models/${userId}/preview-${newId()}`, file, { access: 'public' })
+    const ext = PREVIEW_EXT[file.type]
+    blob = await put(`models/${userId}/preview-${newId()}.${ext}`, file, { access: 'public' })
   } catch (e) {
     const message = e instanceof Error ? e.message : 'Blob upload failed'
     return c.json({ error: message }, 500)

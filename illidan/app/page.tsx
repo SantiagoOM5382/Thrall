@@ -2,7 +2,9 @@ import { apiFetchPublic } from "@/lib/api"
 import type { Model } from "@/lib/types"
 import { ModelGrid } from "@/components/model-grid"
 
-export const revalidate = 3600
+// Short ISR window so uploads / edits made in sylvanas propagate to visitors
+// within a minute instead of the standard 1h.
+export const revalidate = 60
 
 async function getModels(): Promise<Model[]> {
   try {

@@ -6,7 +6,8 @@ import { waLink, tgLink } from "@/lib/contacts"
 import { WhatsAppIcon } from "@/components/whatsapp-icon"
 import type { Model } from "@/lib/types"
 
-export const revalidate = 3600
+// See app/page.tsx — same short ISR window so edits propagate quickly.
+export const revalidate = 60
 
 export async function generateStaticParams() {
   try {

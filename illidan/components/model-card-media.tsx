@@ -23,9 +23,12 @@ export function ModelCardMedia({
   const videoRef = useRef<HTMLVideoElement>(null)
   const [ready, setReady] = useState(false)
 
-  const isVideo =
-    !!previewUrl && (previewUrl.endsWith(".mp4") || previewUrl.endsWith(".webm"))
+  // URL-suffix detection covers uploads made after the extension fix; anything
+  // uploaded before that (paths without extensions) defaults to video, which
+  // is the correct guess for the vast majority of previews (mp4/webm).
   const isGif = !!previewUrl && previewUrl.endsWith(".gif")
+  const isVideo =
+    !!previewUrl && !isGif
 
   function onEnter() {
     if (isVideo && videoRef.current) {

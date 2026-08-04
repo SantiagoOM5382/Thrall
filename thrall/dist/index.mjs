@@ -71452,6 +71452,11 @@ var PREVIEW_ALLOWED_TYPES = /* @__PURE__ */ new Set([
   "image/gif"
 ]);
 var PREVIEW_MAX_BYTES = 15 * 1024 * 1024;
+var PREVIEW_EXT = {
+  "video/mp4": "mp4",
+  "video/webm": "webm",
+  "image/gif": "gif"
+};
 var imagesRoutes = new Hono2();
 imagesRoutes.use("*", authMiddleware);
 imagesRoutes.post("/users/:userId", async (c) => {
@@ -71540,7 +71545,8 @@ imagesRoutes.post("/users/:userId/preview", async (c) => {
   }
   let blob2;
   try {
-    blob2 = await put(`models/${userId}/preview-${newId()}`, file2, { access: "public" });
+    const ext = PREVIEW_EXT[file2.type];
+    blob2 = await put(`models/${userId}/preview-${newId()}.${ext}`, file2, { access: "public" });
   } catch (e) {
     const message2 = e instanceof Error ? e.message : "Blob upload failed";
     return c.json({ error: message2 }, 500);

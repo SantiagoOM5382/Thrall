@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef, useState } from "react"
+import { useRef } from "react"
 
 // A model card's cover slot. Priority:
 //   1. If the model has a video preview (mp4/webm) → show video paused on
@@ -21,7 +21,6 @@ export function ModelCardMedia({
   fallback: React.ReactNode
 }) {
   const videoRef = useRef<HTMLVideoElement>(null)
-  const [ready, setReady] = useState(false)
 
   // URL-suffix detection covers uploads made after the extension fix; anything
   // uploaded before that (paths without extensions) defaults to video, which
@@ -43,31 +42,28 @@ export function ModelCardMedia({
   }
 
   // Video preview available: it IS the primary visual.
+  //
+  // Deliberately NO `poster` attribute — `poster` is not a "loading
+  // placeholder", it's a persistent image the browser shows UNTIL the video
+  // actually starts playing. Using the static gallery cover as poster meant
+  // the video was hidden behind that photo on first load, only revealing on
+  // hover. Without a poster the browser renders the video's own first frame
+  // as the thumbnail. Nudging currentTime forces that frame to render even
+  // in browsers that would otherwise show a blank rectangle.
   if (isVideo) {
     return (
       <div onMouseEnter={onEnter} onMouseLeave={onLeave} onFocus={onEnter} onBlur={onLeave} className="h-full w-full">
         <video
           ref={videoRef}
           src={previewUrl!}
-          poster={cover}
           muted
           loop
           playsInline
           preload="metadata"
-          onLoadedData={() => setReady(true)}
+          aria-label={name}
+          onLoadedMetadata={(e) => { e.currentTarget.currentTime = 0.01 }}
           className="h-full w-full object-cover transition-transform duration-[900ms] ease-out group-hover:scale-[1.04]"
         />
-        {/* While the video's first frame is loading, keep the static cover
-            visible under it as a soft placeholder — avoids a black flash. */}
-        {!ready && cover && (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={cover}
-            alt={name}
-            className="pointer-events-none absolute inset-0 h-full w-full object-cover"
-            aria-hidden="true"
-          />
-        )}
       </div>
     )
   }

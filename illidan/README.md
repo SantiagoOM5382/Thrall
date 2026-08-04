@@ -1,42 +1,48 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# illidan — Musa public showcase
 
-## Getting Started
+Next.js 15 App Router. The public-facing site where visitors browse
+published models, hover to see an animated preview, and click through to
+contact the model by WhatsApp / Telegram.
 
-First, run the development server:
+See the [monorepo README](../README.md) for the product overview.
+
+## Local dev
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+npm run dev   # http://localhost:3001
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Requires `THRALL_URL` pointing at the backend (public endpoints only —
+this app is unauthenticated). Copy `.env.local.example` → `.env.local`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Layout
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `app/page.tsx` — landing grid of active models (ISR 1h).
+- `app/models/[id]/page.tsx` — profile detail (SSG via
+  `generateStaticParams`, dynamic `generateMetadata` for OG previews).
+- `app/legal/{terminos,privacidad}/page.tsx` — legal pages linked from
+  the footer.
+- `app/sitemap.ts` — dynamic sitemap including every published model URL.
+- `components/age-gate.tsx` — client-side 18+ overlay, cookie-based, does
+  not block SEO indexing.
+- `components/model-card-media.tsx` — the hover-to-play preview player
+  (mp4/webm autoplays muted-looped on hover; gif animates natively).
+- `components/model-modal.tsx` — the "quick view" modal opened from the
+  grid.
 
-## Environment Variables
+## Env vars
 
-Copy `.env.local.example` to `.env.local` and fill in the values. Notably:
+- `THRALL_URL` — backend base URL.
+- `NEXT_PUBLIC_SYLVANAS_URL` — where the "Forma parte" and "Ingresar"
+  CTAs point.
+- `NEXT_PUBLIC_SITE_URL` — the canonical origin of the deployed site,
+  used to build absolute URLs in the sitemap (defaults to `https://musa.co`
+  if unset).
 
-- `NEXT_PUBLIC_SYLVANAS_URL` — base URL of the Sylvanas admin dashboard. Used by the "Forma parte" CTA in the header, which links to `${NEXT_PUBLIC_SYLVANAS_URL}/signup`. Must be set in Vercel for both preview and production environments.
+## Notes
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Public models listing filters out models with no `phone` and no
+  `telegram` — visitors need a way to contact them.
+- Model PII (email, brandId, role, timestamps) is NEVER included in the
+  public API response — only what's needed to display and contact.

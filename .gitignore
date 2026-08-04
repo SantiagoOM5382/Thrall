@@ -1,0 +1,12 @@
+# Local scratch used by the SDD tooling — briefs, per-task reports,
+# progress ledgers. Not part of the shipped project.
+.superpowers/
+
+# Editor
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Runtime OS/tooling caches
+.cache/
